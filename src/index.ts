@@ -1,0 +1,215 @@
+#!/usr/bin/env node
+
+import {
+  loadConfig,
+  validateConfig,
+  type Config,
+  type IterationResult,
+  type ExperimentMode,
+} from "./config.js";
+import { MOCK_ENDPOINTS, selectRandomEndpoint } from "./endpoints.js";
+import { createX402Client, queryEndpoint } from "./x402-client.js";
+import { createZauthClient, checkEndpointReliability } from "./zauth-client.js";
+import { MetricsCollector } from "./metrics.js";
+import {
+  printOpportunitySizing,
+  DEFAULT_OPPORTUNITY_PARAMS,
+} from "./opportunity.js";
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runIteration(
+  iteration: number,
+  mode: ExperimentMode,
+  config: Config,
+  x402Client: Awaited<ReturnType<typeof createX402Client>>,
+  zauthClient: Awaited<ReturnType<typeof createZauthClient>>
+): Promise<IterationResult> {
+  const endpoint = selectRandomEndpoint(MOCK_ENDPOINTS);
+  const timestamp = new Date();
+
+  // Default result structure
+  const result: IterationResult = {
+    iteration,
+    timestamp,
+    endpoint: endpoint.url,
+    mode,
+    zauthChecked: false,
+    zauthScore: null,
+    zauthSkipped: false,
+    skipReason: null,
+    paymentAttempted: false,
+    paymentSucceeded: false,
+    responseValid: false,
+    burnUsdc: 0,
+    spentUsdc: 0,
+    latencyMs: 0,
+    errorMessage: null,
+  };
+
+  // Step 1: If with-zauth mode, check reliability first
+  if (mode === "with-zauth") {
+    const zauthResult = await checkEndpointReliability(zauthClient, endpoint);
+    result.zauthChecked = zauthResult.checked;
+    result.zauthScore = zauthResult.score;
+
+    if (zauthResult.shouldSkip) {
+      result.zauthSkipped = true;
+      result.skipReason = zauthResult.skipReason;
+      result.latencyMs = zauthResult.latencyMs;
+      // In real mode, we'd pay for the zauth check (~$0.005)
+      // In mock mode, it's free
+      if (mode !== "mock" && config.mode !== "mock") {
+        result.spentUsdc = 0.005; // zauth check cost
+      }
+      return result;
+    }
+  }
+
+  // Step 2: Query the endpoint (with payment)
+  result.paymentAttempted = true;
+  const queryResult = await queryEndpoint(x402Client, endpoint, config);
+
+  result.paymentSucceeded = queryResult.paymentMade;
+  result.responseValid = queryResult.responseValid;
+  result.latencyMs = queryResult.latencyMs;
+  result.errorMessage = queryResult.error || null;
+
+  // Calculate spend and burn
+  if (queryResult.paymentMade) {
+    result.spentUsdc = endpoint.priceUsdc;
+
+    // Burn = money spent on invalid responses
+    if (!queryResult.responseValid) {
+      result.burnUsdc = endpoint.priceUsdc;
+    }
+  }
+
+  // Add zauth check cost if applicable
+  if (mode === "with-zauth" && config.mode !== "mock") {
+    result.spentUsdc += 0.005;
+  }
+
+  return result;
+}
+
+async function runExperiment(config: Config): Promise<void> {
+  console.log("\n" + "=".repeat(60));
+  console.log("ZAUTH X402 BURN REDUCTION EXPERIMENT");
+  console.log("=".repeat(60));
+  console.log(`Mode: ${config.mode}`);
+  console.log(`Iterations: ${config.iterations}`);
+  console.log(`Delay: ${config.delayMs}ms`);
+  console.log(`Max Spend: $${config.maxUsdcSpend}`);
+  if (config.mode === "mock") {
+    console.log(`Mock Failure Rate: ${(config.mockFailureRate * 100).toFixed(0)}%`);
+  }
+  console.log("=".repeat(60) + "\n");
+
+  // Initialize clients
+  console.log("Initializing clients...");
+  const x402Client = await createX402Client(config);
+  const zauthClient = await createZauthClient(config);
+  console.log("Clients initialized.\n");
+
+  const metrics = new MetricsCollector(config);
+
+  // Determine which modes to run
+  let modesToRun: ExperimentMode[];
+  if (config.mode === "mock") {
+    // In mock mode, run both scenarios for comparison
+    modesToRun = ["no-zauth", "with-zauth"];
+  } else {
+    modesToRun = [config.mode];
+  }
+
+  const iterationsPerMode = Math.floor(config.iterations / modesToRun.length);
+
+  for (const mode of modesToRun) {
+    console.log(`\n--- Running ${mode} mode (${iterationsPerMode} iterations) ---\n`);
+
+    for (let i = 0; i < iterationsPerMode; i++) {
+      // Check spend limit
+      if (metrics.isSpendLimitReached()) {
+        console.log(
+          `\nSpend limit reached ($${config.maxUsdcSpend}). Stopping.`
+        );
+        break;
+      }
+
+      const result = await runIteration(
+        i + 1,
+        mode,
+        config,
+        x402Client,
+        zauthClient
+      );
+      metrics.addResult(result);
+
+      // Progress indicator (every 10 iterations if not verbose)
+      if (!config.verbose && (i + 1) % 10 === 0) {
+        const spent = metrics.getTotalSpent();
+        process.stdout.write(
+          `\rProgress: ${i + 1}/${iterationsPerMode} | Spent: $${spent.toFixed(4)}`
+        );
+      }
+
+      // Delay between iterations
+      if (i < iterationsPerMode - 1) {
+        await sleep(config.delayMs);
+      }
+    }
+
+    console.log("\n");
+  }
+
+  // Print results
+  metrics.printSummaryTable();
+
+  // Export to CSV
+  await metrics.exportToCsv();
+
+  // Calculate and print opportunity sizing
+  const results = metrics.getResults();
+  const noZauthResults = results.filter((r) => r.mode === "no-zauth");
+  const experimentBurnRate =
+    noZauthResults.length > 0
+      ? noZauthResults.reduce((sum, r) => sum + r.burnUsdc, 0) /
+        noZauthResults.reduce((sum, r) => sum + r.spentUsdc, 0)
+      : undefined;
+
+  printOpportunitySizing(DEFAULT_OPPORTUNITY_PARAMS, experimentBurnRate);
+
+  console.log("\n" + "=".repeat(60));
+  console.log("EXPERIMENT COMPLETE");
+  console.log("=".repeat(60) + "\n");
+}
+
+// Main entry point
+async function main(): Promise<void> {
+  try {
+    const config = loadConfig();
+    validateConfig(config);
+
+    // Safety warning for non-mock modes
+    if (config.mode !== "mock") {
+      console.log("\n⚠️  WARNING: Running in REAL mode!");
+      console.log("This will spend actual USDC on x402 payments.");
+      console.log(`Max spend limit: $${config.maxUsdcSpend}`);
+      console.log("Press Ctrl+C within 5 seconds to abort...\n");
+      await sleep(5000);
+    }
+
+    await runExperiment(config);
+  } catch (error) {
+    console.error(
+      "\nError:",
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
+  }
+}
+
+main();

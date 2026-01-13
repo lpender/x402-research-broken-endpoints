@@ -1,0 +1,29 @@
+{
+  "name": "zauth-burn-experiment",
+  "version": "1.0.0",
+  "description": "Experiment to quantify burn reduction using zauth x402 endpoint verification",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "start:mock": "tsx src/index.ts --mode mock",
+    "start:no-zauth": "tsx src/index.ts --mode no-zauth",
+    "start:with-zauth": "tsx src/index.ts --mode with-zauth",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@x402/fetch": "^2.2.0",
+    "@x402/svm": "^2.2.0",
+    "@solana/kit": "^2.1.0",
+    "@scure/base": "^1.2.4",
+    "cli-table3": "^0.6.5",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
