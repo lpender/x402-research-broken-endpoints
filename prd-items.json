@@ -155,7 +155,7 @@
         "Includes: executive summary, methodology, results table, statistical analysis, conclusions",
         "Statistical significance stated clearly (p-value, CI, effect size)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-001",

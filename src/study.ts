@@ -180,11 +180,21 @@ function aggregateConditionResults(trials: TrialResults[]): ConditionResults {
   const totalSpents = trials.map((t) => t.totalSpent);
   const totalBurns = trials.map((t) => t.totalBurn);
 
+  // Calculate average queries across all trials
+  const queriesAttemptedPerTrial = trials.map((t) =>
+    t.metrics.reduce((sum, m) => sum + m.queriesAttempted, 0)
+  );
+  const queriesFailedPerTrial = trials.map((t) =>
+    t.metrics.reduce((sum, m) => sum + m.queriesFailed, 0)
+  );
+
   return {
     trials,
     avgBurnRate: mean(burnRates),
     avgTotalSpent: mean(totalSpents),
     avgTotalBurn: mean(totalBurns),
     stdDevBurnRate: standardDeviation(burnRates),
+    avgQueriesAttempted: mean(queriesAttemptedPerTrial),
+    avgQueriesFailed: mean(queriesFailedPerTrial),
   };
 }

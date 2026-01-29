@@ -75,6 +75,8 @@ export interface ConditionResults {
   avgTotalSpent: number;
   avgTotalBurn: number;
   stdDevBurnRate: number;
+  avgQueriesAttempted: number;
+  avgQueriesFailed: number;
 }
 
 export interface StudyResults {

@@ -64,3 +64,16 @@ Task: REPORT-002 - CSV/JSON export functions
 PRD item completed: REPORT-002
 Files: src/report.ts, prd-items.json
 Next: REPORT-003 (markdown report generation)
+Task: REPORT-003 - Markdown report generation
+- Created generateMarkdownReport(): produces publication-ready markdown with executive summary, methodology, results tables, statistical analysis, conclusions, limitations, reproducibility info
+- Executive summary: burn reduction %, CI, p-value, effect size, net savings, context-aware conclusion (significant vs not, positive vs negative)
+- Methodology: agent workflow steps, experimental conditions (control vs treatment), study design details
+- Results: summary statistics table (condition, trials, spent, burn, rate, savings), statistical analysis table (all metrics with interpretations)
+- Detailed findings: queries attempted/failed per condition, failure rates, queries avoided by Zauth
+- Conclusions: context-aware based on significance and burn reduction magnitude, key takeaways when significant
+- Limitations and reproducibility sections included
+- Updated ConditionResults type: added avgQueriesAttempted, avgQueriesFailed fields
+- Updated aggregateConditionResults(): calculates avg queries per trial from cycle metrics
+PRD item completed: REPORT-003
+Files: src/report.ts, src/types.ts, src/study.ts, prd-items.json
+Next: CLI-001 (--study command)
