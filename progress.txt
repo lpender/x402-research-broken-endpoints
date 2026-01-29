@@ -199,3 +199,16 @@ PRD item completed: BUDGET-001
 Files: src/spend-tracker.ts, prd-items.json
 Next: BUDGET-002 (study aborts gracefully when budget exhausted)
 - Fixed PATH for claude binary using ENV instead of .bashrc. Files: Dockerfile
+
+Task: BUDGET-002 - Study aborts gracefully when budget exhausted
+- Added budgetUsdc optional field to StudyConfig in types.ts
+- Integrated SpendTracker into study.ts: created if budget set, passed to runTrial
+- runTrial checks canSpend(estimatedCostPerCycle) before each cycle, sets isBudgetExhausted flag if exceeded
+- Records actual spend via spendTracker.recordSpend(result.totalSpent) after each cycle
+- On budget exhaustion: shows "Budget exhausted: spent $X of $Y ($Z remaining)", saves partial results
+- Graceful exit (exit code 0, not error) when partial results available
+- Verified: test with $1 budget on 10 trials stopped after 1 trial pair, partial results saved
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: BUDGET-002
+Files: src/study.ts, src/types.ts, prd-items.json
+Next: BUDGET-003 (CLI requires --budget for --real mode)

@@ -97,4 +97,5 @@ export interface StudyConfig {
   conditions: ["no-zauth", "with-zauth"];
   outputDir: string;
   mockMode: boolean;
+  budgetUsdc?: number; // Optional budget limit for real mode
 }

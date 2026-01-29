@@ -17,6 +17,7 @@ import {
   tTest,
   cohensD,
 } from "./statistics.js";
+import { createSpendTracker, type SpendTracker } from "./spend-tracker.js";
 
 interface ProgressTracker {
   totalTrials: number;
@@ -92,20 +93,32 @@ class SeededRandom {
 let partialResults: { noZauth: TrialResults[]; withZauth: TrialResults[] } | null =
   null;
 let isInterrupted = false;
+let isBudgetExhausted = false;
 
 export async function runScientificStudy(
   config: StudyConfig,
   baseConfig: Config
 ): Promise<StudyResults> {
+  // Reset state for new study
+  isBudgetExhausted = false;
+
   console.log("\n=== Starting Scientific Study ===");
   console.log(`Trials per condition: ${config.trialsPerCondition}`);
   console.log(`Cycles per trial: ${config.cyclesPerTrial}`);
   console.log(`Base seed: ${config.baseSeed}`);
   console.log(`Mock mode: ${config.mockMode}`);
+  if (config.budgetUsdc !== undefined) {
+    console.log(`Budget: $${config.budgetUsdc.toFixed(2)} USDC`);
+  }
   console.log("");
 
   const noZauthTrials: TrialResults[] = [];
   const withZauthTrials: TrialResults[] = [];
+
+  // Create spend tracker if budget is set
+  const spendTracker = config.budgetUsdc !== undefined
+    ? createSpendTracker(config.budgetUsdc)
+    : null;
 
   // Create x402 client once (real client initialized once, reused across trials)
   let x402Client: X402Client | null = null;
@@ -138,7 +151,7 @@ export async function runScientificStudy(
 
     // Run matched pairs of trials
     for (let trialIdx = 0; trialIdx < config.trialsPerCondition; trialIdx++) {
-      if (isInterrupted) break;
+      if (isInterrupted || isBudgetExhausted) break;
 
       const trialSeed = config.baseSeed + trialIdx;
 
@@ -150,12 +163,13 @@ export async function runScientificStudy(
         trialSeed,
         baseConfig,
         config.mockMode,
-        x402Client
+        x402Client,
+        spendTracker
       );
       noZauthTrials.push(noZauthResult);
       progress.completedTrials++;
 
-      if (isInterrupted) break;
+      if (isInterrupted || isBudgetExhausted) break;
 
       // Run with-zauth condition with same seed
       updateProgress(progress);
@@ -165,7 +179,8 @@ export async function runScientificStudy(
         trialSeed,
         baseConfig,
         config.mockMode,
-        x402Client
+        x402Client,
+        spendTracker
       );
       withZauthTrials.push(withZauthResult);
       progress.completedTrials++;
@@ -174,7 +189,19 @@ export async function runScientificStudy(
     // Clear progress line
     process.stdout.write("\r" + " ".repeat(80) + "\r");
 
-    if (isInterrupted) {
+    if (isBudgetExhausted && spendTracker) {
+      // Ensure we have paired trials (remove unpaired trial if exists)
+      const minTrials = Math.min(noZauthTrials.length, withZauthTrials.length);
+      noZauthTrials.length = minTrials;
+      withZauthTrials.length = minTrials;
+
+      console.log(
+        `\nBudget exhausted: ${spendTracker.getSummary()}`
+      );
+      console.log(
+        `Partial study saved: ${minTrials}/${config.trialsPerCondition} trial pairs completed`
+      );
+    } else if (isInterrupted) {
       // Ensure we have paired trials (remove unpaired trial if exists)
       const minTrials = Math.min(noZauthTrials.length, withZauthTrials.length);
       noZauthTrials.length = minTrials;
@@ -185,6 +212,9 @@ export async function runScientificStudy(
       );
     } else {
       console.log("\nStudy completed successfully!");
+      if (spendTracker) {
+        console.log(`Final spend: ${spendTracker.getSummary()}`);
+      }
     }
   } finally {
     // Clean up interrupt handler
@@ -250,7 +280,8 @@ async function runTrial(
   seed: number,
   config: Config,
   mockMode: boolean,
-  sharedX402Client: X402Client | null = null
+  sharedX402Client: X402Client | null = null,
+  spendTracker: SpendTracker | null = null
 ): Promise<TrialResults> {
   const rng = new SeededRandom(seed);
   const metrics: CycleMetrics[] = [];
@@ -261,11 +292,25 @@ async function runTrial(
 
   const agent = new YieldOptimizerAgent(mode, config, x402Client, zauthClient);
 
+  // Estimate cost per cycle (rough estimate for budget check)
+  const estimatedCostPerCycle = 0.03; // ~$0.03 per cycle (3 queries @ ~$0.01)
+
   // Run optimization cycles
   for (let cycleIdx = 0; cycleIdx < cycles; cycleIdx++) {
+    // Check budget before each cycle
+    if (spendTracker && !spendTracker.canSpend(estimatedCostPerCycle)) {
+      isBudgetExhausted = true;
+      break;
+    }
+
     const startTime = Date.now();
     const result: OptimizationResult = await agent.runOptimizationCycle();
     const latencyMs = Date.now() - startTime;
+
+    // Record actual spend
+    if (spendTracker) {
+      spendTracker.recordSpend(result.totalSpent);
+    }
 
     metrics.push({
       spentUsdc: result.totalSpent,
