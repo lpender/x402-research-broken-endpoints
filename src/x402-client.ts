@@ -17,9 +17,17 @@ export interface PaymentResult {
 // Mock x402 client for testing without real payments
 class MockX402Client {
   private config: Config;
+  private rng: { next: () => number } | null;
+  private mockMode: boolean;
 
-  constructor(config: Config) {
+  constructor(config: Config, rng: { next: () => number } | null = null, mockMode: boolean = true) {
     this.config = config;
+    this.rng = rng;
+    this.mockMode = mockMode;
+  }
+
+  private random(): number {
+    return this.rng ? this.rng.next() : Math.random();
   }
 
   async fetchWithPayment(endpoint: Endpoint): Promise<PaymentResult> {
@@ -27,11 +35,11 @@ class MockX402Client {
 
     // Simulate network latency
     const latency = endpoint.mockLatencyMs || 200;
-    await this.delay(latency + Math.random() * 100);
+    await this.delay(latency + this.random() * 100);
 
     // Determine if this request "fails" based on mock failure rate
     const failureRate = endpoint.mockFailureRate ?? this.config.mockFailureRate;
-    const shouldFail = Math.random() < failureRate;
+    const shouldFail = this.random() < failureRate;
 
     // Payment always "succeeds" in mock mode (simulating the scenario where
     // you pay but get a bad response)
@@ -161,6 +169,15 @@ export async function createX402Client(
   const realClient = new RealX402Client(config);
   await realClient.initialize();
   return realClient;
+}
+
+// Factory function for study runner with seeded random
+export function createMockX402Client(
+  config: Config,
+  rng: { next: () => number },
+  mockMode: boolean = true
+): MockX402Client {
+  return new MockX402Client(config, rng, mockMode);
 }
 
 // Unified interface for both clients

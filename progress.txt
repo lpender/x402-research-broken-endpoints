@@ -31,3 +31,17 @@ Task: ENDPOINT-001 - Enhanced mock endpoints with realistic DeFi data
 PRD items completed: YIELD-002, YIELD-003, YIELD-004, YIELD-005, ENDPOINT-001, ENDPOINT-002 (all already implemented)
 Files: src/endpoints.ts, src/index.ts, prd-items.json
 Next: STUDY-001 (create scientific study runner)
+
+Task: STUDY-001, STUDY-002, STATS-001, STATS-002 - Scientific study infrastructure
+- Created src/study.ts: runScientificStudy() executes matched trial pairs (no-zauth vs with-zauth)
+- Seeded RNG (linear congruential) ensures reproducibility: same seed → same results across runs
+- runTrial() runs N cycles per condition, collects per-cycle metrics (spentUsdc, burnUsdc, zauthCostUsdc, queries, latency)
+- Aggregates per-trial stats: totalSpent, totalBurn, burnRate, avgLatency
+- Calculates condition-level stats: avgBurnRate, stdDevBurnRate, confidence intervals
+- Created src/statistics.ts: mean(), standardDeviation(), confidenceInterval(), tTest(), cohensD(), interpretEffectSize()
+- Statistical analysis: paired t-test for matched trials, 95% CI, effect size (Cohen's d), p-value approximation
+- Updated mock clients (x402, zauth) to accept seeded RNG for deterministic behavior
+- Added createMockX402Client() and createMockZauthClient() factory functions with RNG parameter
+PRD items completed: STUDY-001, STUDY-002, STATS-001, STATS-002
+Files: src/study.ts, src/statistics.ts, src/x402-client.ts, src/zauth-client.ts, prd-items.json
+Next: REPORT-001 (console summary tables)

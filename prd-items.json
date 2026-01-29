@@ -89,7 +89,7 @@
         "Default: 10 trials, 50 cycles each",
         "Supports --real flag for real x402 payments"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STUDY-002",
@@ -100,7 +100,7 @@
         "Aggregates per trial: totalSpent, totalBurn, burnRate, avgLatency",
         "Stores raw data for export"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STATS-001",
@@ -112,7 +112,7 @@
         "tTest(group1, group2) returns { tStatistic, pValue }",
         "cohensD(group1, group2) returns effect size"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STATS-002",
@@ -122,7 +122,7 @@
         "interpretEffectSize(d) returns: negligible (d<0.2), small (0.2-0.5), medium (0.5-0.8), large (>0.8)",
         "Used in report generation for plain-English explanations"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "REPORT-001",

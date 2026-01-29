@@ -22,28 +22,34 @@ const RELIABILITY_THRESHOLD = 0.70; // 70% uptime minimum
 // Mock Zauth client for testing
 class MockZauthClient {
   private config: Config;
+  private rng: { next: () => number } | null;
 
-  constructor(config: Config) {
+  constructor(config: Config, rng: { next: () => number } | null = null) {
     this.config = config;
+    this.rng = rng;
+  }
+
+  private random(): number {
+    return this.rng ? this.rng.next() : Math.random();
   }
 
   async checkEndpoint(endpoint: Endpoint): Promise<ZauthCheckResult> {
     const startTime = Date.now();
 
     // Simulate network latency
-    await this.delay(50 + Math.random() * 50);
+    await this.delay(50 + this.random() * 50);
 
     // In mock mode, zauth "knows" the mock failure rates and reports accordingly
     const failureRate = endpoint.mockFailureRate ?? this.config.mockFailureRate;
     const uptime = 1 - failureRate;
-    const working = Math.random() > failureRate * 0.5; // Current check has better odds
+    const working = this.random() > failureRate * 0.5; // Current check has better odds
 
     const response: ZauthHealthCheckResponse = {
       working,
       uptime: uptime * 100,
-      cached: Math.random() > 0.7,
-      stale: Math.random() > 0.9,
-      responseTime: (endpoint.mockLatencyMs || 200) + Math.random() * 100,
+      cached: this.random() > 0.7,
+      stale: this.random() > 0.9,
+      responseTime: (endpoint.mockLatencyMs || 200) + this.random() * 100,
     };
 
     const score = uptime * 100;
@@ -261,4 +267,12 @@ export async function checkEndpointReliability(
   endpoint: Endpoint
 ): Promise<ZauthCheckResult> {
   return client.checkEndpoint(endpoint);
+}
+
+// Factory function for study runner with seeded random
+export function createMockZauthClient(
+  config: Config,
+  rng: { next: () => number }
+): MockZauthClient {
+  return new MockZauthClient(config, rng);
 }
