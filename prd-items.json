@@ -167,7 +167,7 @@
         "--cycles=N sets cycles per trial (default 50)",
         "--real flag enables real x402 payments"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-002",

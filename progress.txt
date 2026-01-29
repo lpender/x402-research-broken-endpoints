@@ -77,3 +77,16 @@ Task: REPORT-003 - Markdown report generation
 PRD item completed: REPORT-003
 Files: src/report.ts, src/types.ts, src/study.ts, prd-items.json
 Next: CLI-001 (--study command)
+
+Task: CLI-001 - CLI supports --study command
+- Added parseCliArgs(): parses --study, --trials=N, --cycles=N, --seed=N, --real, --help flags
+- Added printHelp(): displays usage, options, examples for CLI commands
+- Integrated runScientificStudy() with CLI: creates StudyConfig + minimal Config (mock or real mode)
+- Study mode creates results dir, exports CSV/JSON/MD files with timestamp
+- --real flag switches from mock to real x402 payments, shows safety warning
+- --seed=N enables reproducibility: same seed → identical results (verified)
+- Default values: trials=10, cycles=50, seed=Date.now(), mockMode=true
+- Tested: --help output, --study with 2 trials/3 cycles (generates all files), reproducibility with --seed=12345
+PRD item completed: CLI-001
+Files: src/index.ts, prd-items.json
+Next: CLI-002 (--agent command for debugging)

@@ -15,6 +15,8 @@ import {
   printOpportunitySizing,
   DEFAULT_OPPORTUNITY_PARAMS,
 } from "./opportunity.js";
+import { runScientificStudy } from "./study.js";
+import { printFullReport, exportRawDataCsv, exportSummaryJson, generateMarkdownReport } from "./report.js";
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -187,9 +189,171 @@ async function runExperiment(config: Config): Promise<void> {
   console.log("=".repeat(60) + "\n");
 }
 
+// Parse CLI arguments
+interface CliArgs {
+  mode: 'study' | 'experiment';
+  trials?: number;
+  cycles?: number;
+  seed?: number;
+  real?: boolean;
+  help?: boolean;
+}
+
+function parseCliArgs(): CliArgs {
+  const args = process.argv.slice(2);
+  const result: CliArgs = { mode: 'experiment' };
+
+  for (const arg of args) {
+    if (arg === '--study') {
+      result.mode = 'study';
+    } else if (arg.startsWith('--trials=')) {
+      result.trials = parseInt(arg.split('=')[1], 10);
+    } else if (arg.startsWith('--cycles=')) {
+      result.cycles = parseInt(arg.split('=')[1], 10);
+    } else if (arg.startsWith('--seed=')) {
+      result.seed = parseInt(arg.split('=')[1], 10);
+    } else if (arg === '--real') {
+      result.real = true;
+    } else if (arg === '--help' || arg === '-h') {
+      result.help = true;
+    }
+  }
+
+  return result;
+}
+
+function printHelp(): void {
+  console.log(`
+Zauth x402 Burn Reduction Study
+
+USAGE:
+  npx tsx src/index.ts [OPTIONS]
+
+OPTIONS:
+  --study              Run scientific study comparing no-zauth vs with-zauth
+  --trials=N           Number of trials per condition (default: 10)
+  --cycles=N           Number of optimization cycles per trial (default: 50)
+  --seed=N             Random seed for reproducibility (default: random)
+  --real               Use real x402 payments instead of mock (default: mock)
+  --help, -h           Show this help message
+
+EXAMPLES:
+  # Run full scientific study (mock mode)
+  npx tsx src/index.ts --study --trials=10 --cycles=50
+
+  # Run quick test study
+  npx tsx src/index.ts --study --trials=2 --cycles=5
+
+  # Run study with real payments
+  npx tsx src/index.ts --study --trials=10 --cycles=50 --real
+
+  # Run study with reproducible seed
+  npx tsx src/index.ts --study --seed=12345
+
+  # Run original experiment (legacy mode)
+  npx tsx src/index.ts
+`);
+}
+
 // Main entry point
 async function main(): Promise<void> {
   try {
+    const cliArgs = parseCliArgs();
+
+    // Show help if requested
+    if (cliArgs.help) {
+      printHelp();
+      process.exit(0);
+    }
+
+    // Handle --study mode
+    if (cliArgs.mode === 'study') {
+      const trials = cliArgs.trials ?? 10;
+      const cycles = cliArgs.cycles ?? 50;
+      const baseSeed = cliArgs.seed ?? Date.now();
+      const mockMode = !cliArgs.real;
+
+      console.log("\n" + "=".repeat(60));
+      console.log("ZAUTH X402 SCIENTIFIC STUDY");
+      console.log("=".repeat(60));
+      console.log(`Trials per condition: ${trials}`);
+      console.log(`Cycles per trial: ${cycles}`);
+      console.log(`Base seed: ${baseSeed}`);
+      console.log(`Payment mode: ${mockMode ? 'MOCK' : 'REAL'}`);
+      console.log("=".repeat(60) + "\n");
+
+      // Safety warning for real mode
+      if (!mockMode) {
+        console.log("⚠️  WARNING: Running in REAL mode!");
+        console.log("This will spend actual USDC on x402 payments.");
+        console.log(`Estimated max spend: ~$${(trials * cycles * 0.05 * 2).toFixed(2)}`);
+        console.log("Press Ctrl+C within 5 seconds to abort...\n");
+        await sleep(5000);
+      }
+
+      // Create base config (load from .env or use defaults)
+      let baseConfig: Config;
+      if (mockMode) {
+        // Use minimal mock config for study mode
+        baseConfig = {
+          solanaPrivateKey: 'mock',
+          solanaRpcUrl: 'mock',
+          mode: 'mock',
+          iterations: cycles,
+          delayMs: 0,
+          maxUsdcSpend: 999999,
+          mockFailureRate: 0.3,
+          zauthDirectoryUrl: 'mock',
+          zauthCheckUrl: 'mock',
+          outputDir: 'results',
+          verbose: false,
+        };
+      } else {
+        // Load actual config for real mode
+        baseConfig = loadConfig();
+        validateConfig(baseConfig);
+      }
+
+      // Run the scientific study
+      const studyConfig = {
+        trialsPerCondition: trials,
+        cyclesPerTrial: cycles,
+        baseSeed,
+        conditions: ['no-zauth', 'with-zauth'] as ["no-zauth", "with-zauth"],
+        outputDir: 'results',
+        mockMode,
+      };
+
+      console.log("Running scientific study...\n");
+      const results = await runScientificStudy(studyConfig, baseConfig);
+
+      // Print results to console
+      console.log("\n");
+      printFullReport(results);
+
+      // Export results
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const csvPath = `${studyConfig.outputDir}/study_${timestamp}.csv`;
+      const jsonPath = `${studyConfig.outputDir}/study_${timestamp}.json`;
+      const mdPath = `${studyConfig.outputDir}/study_${timestamp}.md`;
+
+      await exportRawDataCsv(results, csvPath, studyConfig);
+      await exportSummaryJson(results, jsonPath, studyConfig);
+      await generateMarkdownReport(results, mdPath, studyConfig);
+
+      console.log("\nExported results:");
+      console.log(`  CSV:  ${csvPath}`);
+      console.log(`  JSON: ${jsonPath}`);
+      console.log(`  MD:   ${mdPath}`);
+
+      console.log("\n" + "=".repeat(60));
+      console.log("STUDY COMPLETE");
+      console.log("=".repeat(60) + "\n");
+
+      return;
+    }
+
+    // Legacy experiment mode
     const config = loadConfig();
     validateConfig(config);
 
