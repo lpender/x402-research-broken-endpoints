@@ -1,4 +1,4 @@
-import type { Config, Endpoint } from "./config.js";
+import type { Config, Endpoint, Network } from "./config.js";
 import {
   generateMockResponse,
   generateMockErrorResponse,
@@ -76,32 +76,43 @@ class MockX402Client {
 // This will be used in non-mock modes
 class RealX402Client {
   private config: Config;
+  private network: Network;
   private fetchWithPayment: typeof fetch | null = null;
 
-  constructor(config: Config) {
+  constructor(config: Config, network: Network = "base") {
     this.config = config;
+    this.network = network;
   }
 
   async initialize(): Promise<void> {
     // Dynamic imports to avoid errors if packages aren't installed
     try {
       const { wrapFetchWithPayment, x402Client } = await import("@x402/fetch");
-      const { registerExactSvmScheme } = await import(
-        "@x402/svm/exact/client"
-      );
-      const { createKeyPairSignerFromBytes } = await import("@solana/kit");
-      const { base58 } = await import("@scure/base");
-
-      const svmSigner = await createKeyPairSignerFromBytes(
-        base58.decode(this.config.solanaPrivateKey)
-      );
-
       const client = new x402Client();
-      registerExactSvmScheme(client, { signer: svmSigner });
+
+      if (this.network === "base") {
+        // EVM/Base initialization
+        const { registerExactEvmScheme } = await import("@x402/evm/exact/client");
+        const { privateKeyToAccount } = await import("viem/accounts");
+
+        const signer = privateKeyToAccount(this.config.evmPrivateKey as `0x${string}`);
+        registerExactEvmScheme(client, { signer });
+      } else {
+        // Solana/SVM initialization
+        const { registerExactSvmScheme } = await import("@x402/svm/exact/client");
+        const { createKeyPairSignerFromBytes } = await import("@solana/kit");
+        const { base58 } = await import("@scure/base");
+
+        const svmSigner = await createKeyPairSignerFromBytes(
+          base58.decode(this.config.solanaPrivateKey)
+        );
+        registerExactSvmScheme(client, { signer: svmSigner });
+      }
+
       this.fetchWithPayment = wrapFetchWithPayment(fetch, client);
     } catch (error) {
       throw new Error(
-        `Failed to initialize x402 client: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to initialize x402 client for ${this.network}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -181,14 +192,26 @@ export function createMockX402Client(
 }
 
 // Factory function for real x402 client
-export async function createRealX402Client(config: Config): Promise<RealX402Client> {
-  if (!config.solanaPrivateKey) {
-    throw new Error(
-      "SOLANA_PRIVATE_KEY is required for real mode. " +
-      "Set it in your .env file or environment."
-    );
+export async function createRealX402Client(
+  config: Config,
+  network: Network = "base"
+): Promise<RealX402Client> {
+  if (network === "base") {
+    if (!config.evmPrivateKey) {
+      throw new Error(
+        "EVM_PRIVATE_KEY is required for real mode on Base. " +
+        "Set it in your .env file or environment."
+      );
+    }
+  } else {
+    if (!config.solanaPrivateKey) {
+      throw new Error(
+        "SOLANA_PRIVATE_KEY is required for real mode on Solana. " +
+        "Set it in your .env file or environment."
+      );
+    }
   }
-  const client = new RealX402Client(config);
+  const client = new RealX402Client(config, network);
   await client.initialize();
   return client;
 }
