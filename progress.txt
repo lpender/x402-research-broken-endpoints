@@ -171,3 +171,16 @@ PRD item completed: REAL-001
 Files: prd-items.json
 Next: REAL-002 (wire study runner to RealX402Client)
 
+Task: REAL-002, REAL-003 - Wire study runner to RealX402Client
+- Added createRealX402Client() factory in x402-client.ts: validates SOLANA_PRIVATE_KEY, initializes client, returns ready instance
+- Added X402Client type export for unified client typing
+- Modified runTrial(): accepts optional sharedX402Client param, uses shared client if provided else creates mock
+- Modified runScientificStudy(): creates real client once before trial loop when mockMode=false, passes to all trials
+- Real client initialized once per study (not per trial) for efficiency
+- Mock mode behavior unchanged (verified: --study --trials=1 --cycles=2 works)
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD items completed: REAL-002, REAL-003
+Files: src/x402-client.ts, src/study.ts, prd-items.json
+Next: BUDGET-001 (create SpendTracker for budget enforcement)
+
+- Added docker-compose.yml w/ ~/.claude volume mount for auth persistence. Files: docker-compose.yml
