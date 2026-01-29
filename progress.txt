@@ -162,3 +162,12 @@ Key items: install x402 deps, wire RealX402Client, budget tracking, real endpoin
 Files: sprints/1/*, sprints/2/*, PRD.md (symlink), prd-items.json (symlink)
 Next: REAL-001 (install x402 dependencies)
 
+Task: REAL-001 - Verified x402 payment dependencies installed
+- Dependencies already in package.json: @x402/fetch@2.2.0, @x402/svm@2.2.0, @solana/kit@2.3.0, @scure/base@1.2.6
+- npm install confirmed all packages present (142 packages audited, 0 vulnerabilities)
+- TypeScript compiles without errors (npx tsc --noEmit passes)
+- RealX402Client in src/x402-client.ts imports and uses all x402 deps correctly
+PRD item completed: REAL-001
+Files: prd-items.json
+Next: REAL-002 (wire study runner to RealX402Client)
+
