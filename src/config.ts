@@ -3,8 +3,13 @@ import { config as loadEnv } from "dotenv";
 loadEnv();
 
 export type ExperimentMode = "mock" | "no-zauth" | "with-zauth";
+export type Network = "base" | "solana";
 
 export interface Config {
+  // EVM/Base
+  evmPrivateKey: string;
+  baseRpcUrl: string;
+
   // Solana
   solanaPrivateKey: string;
   solanaRpcUrl: string;
@@ -121,6 +126,8 @@ function parseArgs(): Partial<Config> {
 
 export function loadConfig(): Config {
   const envConfig: Config = {
+    evmPrivateKey: process.env.EVM_PRIVATE_KEY || "",
+    baseRpcUrl: process.env.BASE_RPC_URL || "https://mainnet.base.org",
     solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY || "",
     solanaRpcUrl:
       process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
@@ -148,11 +155,18 @@ export function loadConfig(): Config {
   } as Config;
 }
 
-export function validateConfig(config: Config): void {
-  if (config.mode !== "mock" && !config.solanaPrivateKey) {
-    throw new Error(
-      "SOLANA_PRIVATE_KEY is required for non-mock modes. Set it in .env or use --mode mock"
-    );
+export function validateConfig(config: Config, network: Network = "base"): void {
+  if (config.mode !== "mock") {
+    if (network === "base" && !config.evmPrivateKey) {
+      throw new Error(
+        "EVM_PRIVATE_KEY is required for non-mock modes on Base. Set it in .env or use --mode mock"
+      );
+    }
+    if (network === "solana" && !config.solanaPrivateKey) {
+      throw new Error(
+        "SOLANA_PRIVATE_KEY is required for non-mock modes on Solana. Set it in .env or use --mode mock"
+      );
+    }
   }
 
   if (config.iterations < 1 || config.iterations > 500) {
@@ -176,19 +190,39 @@ export function validateConfig(config: Config): void {
  * Validates configuration specifically for real payment mode.
  * @param config - The config object to validate
  * @param budgetUsdc - The budget amount in USDC (required for real mode)
+ * @param network - The network to validate for (base or solana)
  * @throws Error with clear message if validation fails
  */
 export function validateRealModeConfig(
   config: Config,
-  budgetUsdc: number | undefined
+  budgetUsdc: number | undefined,
+  network: Network = "base"
 ): void {
-  // Check SOLANA_PRIVATE_KEY is non-empty
-  if (!config.solanaPrivateKey || config.solanaPrivateKey.trim() === "") {
-    throw new Error(
-      "SOLANA_PRIVATE_KEY is required for real mode.\n" +
-        "Set it in your .env file:\n" +
-        "  SOLANA_PRIVATE_KEY=your_base58_private_key"
-    );
+  // Check private key based on network
+  if (network === "base") {
+    if (!config.evmPrivateKey || config.evmPrivateKey.trim() === "") {
+      throw new Error(
+        "EVM_PRIVATE_KEY is required for real mode on Base.\n" +
+          "Set it in your .env file:\n" +
+          "  EVM_PRIVATE_KEY=0x_your_hex_private_key_here"
+      );
+    }
+    // Validate hex format
+    if (!config.evmPrivateKey.startsWith("0x")) {
+      throw new Error(
+        "EVM_PRIVATE_KEY must be a hex string starting with 0x.\n" +
+          "Example: EVM_PRIVATE_KEY=0x1234...abcd"
+      );
+    }
+  } else {
+    // Solana
+    if (!config.solanaPrivateKey || config.solanaPrivateKey.trim() === "") {
+      throw new Error(
+        "SOLANA_PRIVATE_KEY is required for real mode on Solana.\n" +
+          "Set it in your .env file:\n" +
+          "  SOLANA_PRIVATE_KEY=your_base58_private_key"
+      );
+    }
   }
 
   // Check budget is provided and positive
@@ -209,12 +243,20 @@ export function validateRealModeConfig(
   }
 
   // Check RPC URL is set (can use default but warn if not explicit)
-  if (
-    !config.solanaRpcUrl ||
-    config.solanaRpcUrl === "https://api.mainnet-beta.solana.com"
-  ) {
-    console.warn(
-      "⚠️  Using default Solana RPC URL. Consider setting SOLANA_RPC_URL in .env for better reliability."
-    );
+  if (network === "base") {
+    if (!config.baseRpcUrl || config.baseRpcUrl === "https://mainnet.base.org") {
+      console.warn(
+        "⚠️  Using default Base RPC URL. Consider setting BASE_RPC_URL in .env for better reliability."
+      );
+    }
+  } else {
+    if (
+      !config.solanaRpcUrl ||
+      config.solanaRpcUrl === "https://api.mainnet-beta.solana.com"
+    ) {
+      console.warn(
+        "⚠️  Using default Solana RPC URL. Consider setting SOLANA_RPC_URL in .env for better reliability."
+      );
+    }
   }
 }
