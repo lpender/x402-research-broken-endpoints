@@ -78,7 +78,7 @@
         "At least one endpoint per category (pool, whale, sentiment)",
         "Each endpoint has: url, name, category, priceUsdc, x402Enabled"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ENDPOINT-002",

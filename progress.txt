@@ -224,3 +224,14 @@ Task: BUDGET-003, CLI-001 - CLI requires --budget for --real mode
 PRD items completed: BUDGET-003, CLI-001
 Files: src/index.ts, prd-items.json
 Next: ENDPOINT-001 (create real endpoint registry)
+
+Task: ENDPOINT-001 - Create real endpoint registry
+- Created src/real-endpoints.ts with RealEndpoint interface and REAL_ENDPOINTS array
+- EndpointCategory type: 'pool' | 'whale' | 'sentiment'
+- RealEndpoint fields: url, name, category, priceUsdc, x402Enabled
+- 6 endpoints total: 2 pool, 2 whale, 2 sentiment (all x402Enabled=true)
+- Helper functions: getEndpointsByCategory(), getEnabledEndpoints(), getEndpointForCategory(), estimateCycleCost()
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: ENDPOINT-001
+Files: src/real-endpoints.ts, prd-items.json
+Next: ENDPOINT-002 (agent uses real endpoints in real mode)
