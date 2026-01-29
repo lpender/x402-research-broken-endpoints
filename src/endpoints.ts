@@ -52,6 +52,8 @@ export interface MockPoolData {
   tvl: number;
   apy: number;
   volume24h: number;
+  feeRate: number;
+  impermanentLossRisk: "low" | "medium" | "high";
 }
 
 export interface MockWhaleData {

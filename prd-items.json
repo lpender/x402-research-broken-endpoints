@@ -10,7 +10,7 @@
         "runOptimizationCycle() returns OptimizationResult with poolData, whaleData, sentimentData, allocation",
         "Constructor accepts mode ('no-zauth' | 'with-zauth') and clients"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "YIELD-002",
