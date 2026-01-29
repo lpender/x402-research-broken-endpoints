@@ -9,14 +9,11 @@ RUN apk add --no-cache \
 # Install taskfile.dev
 RUN sh -c "$(curl -L https://taskfile.dev/install.sh)" -- -b /usr/local/bin
 
-# Create developer user (UID 1000 to match typical host user)
-RUN adduser -D -u 1000 developer
-
 # Set working directory
 WORKDIR /workspace
 
-# Switch to developer user
-USER developer
+# Use existing node user (UID 1000)
+USER node
 
 # Default command
 CMD ["bash"]
