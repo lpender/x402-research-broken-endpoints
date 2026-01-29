@@ -1,0 +1,8 @@
+services:
+  dev:
+    build: .
+    volumes:
+      - .:/workspace
+      - ~/.claude:/home/node/.claude
+    stdin_open: true
+    tty: true
