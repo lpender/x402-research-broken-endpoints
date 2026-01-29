@@ -1,6 +1,7 @@
 import type {
   Config,
   Endpoint,
+  Network,
   ZauthHealthCheckResponse,
   ZauthDirectoryEntry,
 } from "./config.js";
@@ -107,32 +108,43 @@ class MockZauthClient {
 // Real Zauth client using the live API
 class RealZauthClient {
   private config: Config;
+  private network: Network;
   private x402Fetch: typeof fetch | null = null;
 
-  constructor(config: Config) {
+  constructor(config: Config, network: Network = "base") {
     this.config = config;
+    this.network = network;
   }
 
   async initialize(): Promise<void> {
     // Initialize x402 fetch for paid health checks
     try {
       const { wrapFetchWithPayment, x402Client } = await import("@x402/fetch");
-      const { registerExactSvmScheme } = await import(
-        "@x402/svm/exact/client"
-      );
-      const { createKeyPairSignerFromBytes } = await import("@solana/kit");
-      const { base58 } = await import("@scure/base");
-
-      const svmSigner = await createKeyPairSignerFromBytes(
-        base58.decode(this.config.solanaPrivateKey)
-      );
-
       const client = new x402Client();
-      registerExactSvmScheme(client, { signer: svmSigner });
+
+      if (this.network === "base") {
+        // EVM/Base initialization
+        const { registerExactEvmScheme } = await import("@x402/evm/exact/client");
+        const { privateKeyToAccount } = await import("viem/accounts");
+
+        const signer = privateKeyToAccount(this.config.evmPrivateKey as `0x${string}`);
+        registerExactEvmScheme(client, { signer });
+      } else {
+        // Solana/SVM initialization
+        const { registerExactSvmScheme } = await import("@x402/svm/exact/client");
+        const { createKeyPairSignerFromBytes } = await import("@solana/kit");
+        const { base58 } = await import("@scure/base");
+
+        const svmSigner = await createKeyPairSignerFromBytes(
+          base58.decode(this.config.solanaPrivateKey)
+        );
+        registerExactSvmScheme(client, { signer: svmSigner });
+      }
+
       this.x402Fetch = wrapFetchWithPayment(fetch, client);
     } catch (error) {
       console.warn(
-        "Failed to initialize x402 for zauth. Health checks will be skipped:",
+        `Failed to initialize x402 for zauth on ${this.network}. Health checks will be skipped:`,
         error
       );
     }
@@ -250,13 +262,14 @@ class RealZauthClient {
 
 // Factory function
 export async function createZauthClient(
-  config: Config
+  config: Config,
+  network: Network = "base"
 ): Promise<MockZauthClient | RealZauthClient> {
   if (config.mode === "mock") {
     return new MockZauthClient(config);
   }
 
-  const realClient = new RealZauthClient(config);
+  const realClient = new RealZauthClient(config, network);
   await realClient.initialize();
   return realClient;
 }
