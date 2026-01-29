@@ -316,3 +316,20 @@ Task: E2E-001, E2E-002 - Blocked on external infrastructure
 PRD items: E2E-001, E2E-002 blocked on external infrastructure
 Files: prd-items.json, progress.txt
 Status: SPRINT 2 CODE COMPLETE - E2E verification requires external setup
+
+--- Multi-Network Support (Solana + Base) ---
+Task: NET-001 through NET-004 - Add multi-network support for Base and Solana
+- Added @x402/evm and viem dependencies for Base/EVM support
+- Network type: 'base' | 'solana' (default: base)
+- Config: evmPrivateKey + baseRpcUrl for Base, solanaPrivateKey + solanaRpcUrl for Solana
+- x402-client.ts: createRealX402Client(config, network) uses @x402/evm for Base, @x402/svm for Solana
+- zauth-client.ts: createZauthClient(config, network) same dual-network pattern
+- CLI --network flag: --network=base or --network=solana, validates invalid networks
+- Wallet utils: getWalletAddress(config, network), getWalletUsdcBalance(address, config, network)
+- USDC addresses: Base 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, Solana EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+- real-endpoints.ts: RealEndpoint now has 'network' field, added Elsa x402 API endpoints for Base
+- .env.example: documents both EVM_PRIVATE_KEY and SOLANA_PRIVATE_KEY
+- prd-items.json: added NET-001 through NET-004, updated existing items for multi-network
+PRD items completed: NET-001, NET-002, NET-003, NET-004
+Files: package.json, src/config.ts, src/x402-client.ts, src/zauth-client.ts, src/index.ts, src/types.ts, src/study.ts, src/real-endpoints.ts, .env.example, prd-items.json
+Status: Multi-network support complete, tested with mock mode, typecheck passes
