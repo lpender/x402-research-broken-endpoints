@@ -202,7 +202,7 @@
         "Markdown report generated in results/",
         "Statistical values are reasonable (not NaN, not Infinity)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "E2E-002",

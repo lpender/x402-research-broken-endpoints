@@ -115,3 +115,13 @@ PRD item completed: CLI-003
 Files: src/study.ts, prd-items.json, progress.txt
 Next: E2E-001 (end-to-end mock study validation)
 
+Task: E2E-001 - End-to-end mock study validation
+- Ran npx tsx src/index.ts --study --trials=2 --cycles=5 successfully
+- Study completed without errors: 2 trials, 5 cycles each, both conditions (no-zauth, with-zauth)
+- Generated files verified: CSV (study_2026-01-29T18-58-23.csv), JSON (study_2026-01-29T18-58-23.json), MD (study_2026-01-29T18-58-23.md)
+- All statistical values valid: no NaN, no Infinity. Burn reduction 37.42%, p=0.05, Cohen's d=2.012
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: E2E-001
+Files: prd-items.json, progress.txt
+Next: E2E-002 (reproducibility test)
+
