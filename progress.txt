@@ -212,3 +212,15 @@ Task: BUDGET-002 - Study aborts gracefully when budget exhausted
 PRD item completed: BUDGET-002
 Files: src/study.ts, src/types.ts, prd-items.json
 Next: BUDGET-003 (CLI requires --budget for --real mode)
+
+Task: BUDGET-003, CLI-001 - CLI requires --budget for --real mode
+- Added budget?: number to CliArgs interface
+- Parsing: --budget=N parsed as float via parseFloat()
+- Validation: --real without --budget shows error "Budget required for real mode" with example usage
+- Validation: --budget<=0 shows error "Budget must be greater than 0"
+- Budget passed to studyConfig.budgetUsdc, shows in header output
+- Updated help text to document --budget flag
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD items completed: BUDGET-003, CLI-001
+Files: src/index.ts, prd-items.json
+Next: ENDPOINT-001 (create real endpoint registry)

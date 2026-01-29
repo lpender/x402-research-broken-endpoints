@@ -199,6 +199,7 @@ interface CliArgs {
   cycles?: number;
   seed?: number;
   real?: boolean;
+  budget?: number;
   help?: boolean;
   agentMode?: 'no-zauth' | 'with-zauth';
 }
@@ -225,6 +226,8 @@ function parseCliArgs(): CliArgs {
       }
     } else if (arg === '--real') {
       result.real = true;
+    } else if (arg.startsWith('--budget=')) {
+      result.budget = parseFloat(arg.split('=')[1]);
     } else if (arg === '--help' || arg === '-h') {
       result.help = true;
     }
@@ -248,6 +251,7 @@ OPTIONS:
   --cycles=N           Number of optimization cycles per trial/agent (default: 50)
   --seed=N             Random seed for reproducibility (default: random)
   --real               Use real x402 payments instead of mock (default: mock)
+  --budget=N           Max USDC spend limit (required for --real mode)
   --help, -h           Show this help message
 
 EXAMPLES:
@@ -263,8 +267,8 @@ EXAMPLES:
   # Run single agent in no-zauth mode
   npx tsx src/index.ts --agent --mode=no-zauth --cycles=3
 
-  # Run study with real payments
-  npx tsx src/index.ts --study --trials=10 --cycles=50 --real
+  # Run study with real payments ($5 budget)
+  npx tsx src/index.ts --study --real --budget=5.00
 
   # Run study with reproducible seed
   npx tsx src/index.ts --study --seed=12345
@@ -430,6 +434,22 @@ async function main(): Promise<void> {
       const cycles = cliArgs.cycles ?? 50;
       const baseSeed = cliArgs.seed ?? Date.now();
       const mockMode = !cliArgs.real;
+      const budgetUsdc = cliArgs.budget;
+
+      // Validate: --real requires --budget
+      if (!mockMode && budgetUsdc === undefined) {
+        console.error("\n❌ Error: Budget required for real mode");
+        console.error("   Use --budget=<amount> to set max USDC spend (e.g., --budget=5.00)");
+        console.error("\n   Example: npx tsx src/index.ts --study --real --budget=5.00\n");
+        process.exit(1);
+      }
+
+      // Validate: budget must be positive
+      if (budgetUsdc !== undefined && budgetUsdc <= 0) {
+        console.error("\n❌ Error: Budget must be greater than 0");
+        console.error(`   Received: --budget=${budgetUsdc}\n`);
+        process.exit(1);
+      }
 
       console.log("\n" + "=".repeat(60));
       console.log("ZAUTH X402 SCIENTIFIC STUDY");
@@ -438,6 +458,9 @@ async function main(): Promise<void> {
       console.log(`Cycles per trial: ${cycles}`);
       console.log(`Base seed: ${baseSeed}`);
       console.log(`Payment mode: ${mockMode ? 'MOCK' : 'REAL'}`);
+      if (budgetUsdc !== undefined) {
+        console.log(`Budget: $${budgetUsdc.toFixed(2)}`);
+      }
       console.log("=".repeat(60) + "\n");
 
       // Safety warning for real mode
@@ -480,6 +503,7 @@ async function main(): Promise<void> {
         conditions: ['no-zauth', 'with-zauth'] as ["no-zauth", "with-zauth"],
         outputDir: 'results',
         mockMode,
+        budgetUsdc,
       };
 
       console.log("Running scientific study...\n");

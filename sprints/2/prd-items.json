@@ -67,7 +67,7 @@
         "--budget=5.00 sets budget to 5 USDC",
         "Budget passed to SpendTracker"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ENDPOINT-001",
@@ -145,7 +145,7 @@
         "Passed to StudyConfig",
         "Shows in study header output"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-002",
