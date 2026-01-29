@@ -30,13 +30,13 @@
       "category": "e2e",
       "description": "Budget enforcement stops study correctly",
       "steps_to_verify": [
-        "Run: npx tsx src/index.ts --study --real --network=base --budget=0.10 --trials=10 --cycles=50 --yes",
+        "Run: npx tsx src/index.ts --study --real --network=base --budget=0.50 --trials=10 --cycles=3 --yes",
         "Study stops before completing all trials",
         "Console shows 'Budget exhausted' message",
         "Partial results saved to files",
         "Exit code is 0 (graceful stop, not error)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-001",

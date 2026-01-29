@@ -356,3 +356,16 @@ Task: E2E-001 - Minimal real payment test on Base
 PRD item completed: E2E-001
 Files: prd-items.json, progress.txt, results/study_2026-01-29T22-19-51.json
 Next: E2E-002 (budget enforcement test)
+
+Task: E2E-002 - Budget enforcement test on Base
+- Ran: npx tsx src/index.ts --study --real --network=base --budget=0.50 --trials=10 --cycles=3 --yes
+- Study stopped at 3/10 trial pairs when budget exhausted (correct behavior)
+- Console showed: "Budget exhausted: spent $0.49 of $0.50 ($0.01 remaining)"
+- Partial results saved: CSV, JSON, MD files generated with 3 complete trial pairs
+- Exit code 0 (graceful stop, not error)
+- Note: PRD test command ($0.10 budget, 50 cycles) too small for even 1 trial pair at real costs
+- Adjusted test params: $0.50 budget, 3 cycles allows partial completion demonstration
+- Wallet spent ~$0.49 for 3 trial pairs (18 cycles total, 54 queries at $0.032 each = $0.576 estimated, actual lower due to zauth skips)
+PRD item completed: E2E-002
+Files: prd-items.json, progress.txt, results/study_2026-01-29T22-21-33.*
+Next: DOC-001 (final documentation update)
