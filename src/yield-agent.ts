@@ -12,8 +12,10 @@ import {
 import { queryEndpoint } from "./x402-client.js";
 import { checkEndpointReliability } from "./zauth-client.js";
 import { MOCK_ENDPOINTS } from "./endpoints.js";
+import { getRealEndpointsAsEndpoints } from "./real-endpoints.js";
 
 type AgentMode = "no-zauth" | "with-zauth";
+type EndpointSource = "mock" | "real";
 
 const RELIABILITY_THRESHOLD = 0.70;
 
@@ -22,6 +24,7 @@ export class YieldOptimizerAgent {
   private config: Config;
   private x402Client: any;
   private zauthClient: any;
+  private endpointSource: EndpointSource;
   private totalSpent: number = 0;
   private totalBurn: number = 0;
   private zauthCost: number = 0;
@@ -32,12 +35,24 @@ export class YieldOptimizerAgent {
     mode: AgentMode,
     config: Config,
     x402Client: any,
-    zauthClient?: any
+    zauthClient?: any,
+    endpointSource: EndpointSource = "mock"
   ) {
     this.mode = mode;
     this.config = config;
     this.x402Client = x402Client;
     this.zauthClient = zauthClient;
+    this.endpointSource = endpointSource;
+  }
+
+  /**
+   * Get endpoints based on configured source (mock or real)
+   */
+  private getEndpoints(): Endpoint[] {
+    if (this.endpointSource === "real") {
+      return getRealEndpointsAsEndpoints() as Endpoint[];
+    }
+    return MOCK_ENDPOINTS;
   }
 
   async runOptimizationCycle(): Promise<OptimizationResult> {
@@ -75,8 +90,10 @@ export class YieldOptimizerAgent {
   }
 
   async fetchPoolData(): Promise<PoolData[]> {
-    const poolEndpoints = MOCK_ENDPOINTS.filter((e) =>
-      e.url.includes("pools") || e.url.includes("whirlpools") || e.url.includes("vaults")
+    const endpoints = this.getEndpoints();
+    const poolEndpoints = endpoints.filter((e) =>
+      e.url.includes("pools") || e.url.includes("whirlpools") || e.url.includes("vaults") ||
+      e.category === "pool"
     );
 
     const results: PoolData[] = [];
@@ -107,8 +124,10 @@ export class YieldOptimizerAgent {
   }
 
   async fetchWhaleActivity(): Promise<WhaleMove[]> {
-    const whaleEndpoints = MOCK_ENDPOINTS.filter((e) =>
-      e.url.includes("whale")
+    const endpoints = this.getEndpoints();
+    const whaleEndpoints = endpoints.filter((e) =>
+      e.url.includes("whale") || e.url.includes("movements") ||
+      e.url.includes("large-transactions") || e.category === "whale"
     );
 
     const results: WhaleMove[] = [];
@@ -138,8 +157,10 @@ export class YieldOptimizerAgent {
   }
 
   async fetchSentimentData(): Promise<SentimentScore[]> {
-    const sentimentEndpoints = MOCK_ENDPOINTS.filter((e) =>
-      e.url.includes("sentiment")
+    const endpoints = this.getEndpoints();
+    const sentimentEndpoints = endpoints.filter((e) =>
+      e.url.includes("sentiment") || e.url.includes("analysis") ||
+      e.category === "sentiment"
     );
 
     const results: SentimentScore[] = [];

@@ -235,3 +235,19 @@ Task: ENDPOINT-001 - Create real endpoint registry
 PRD item completed: ENDPOINT-001
 Files: src/real-endpoints.ts, prd-items.json
 Next: ENDPOINT-002 (agent uses real endpoints in real mode)
+
+Task: ENDPOINT-002 - Agent uses real endpoints in real mode
+- Added EndpointSource type ("mock" | "real") to yield-agent.ts
+- YieldOptimizerAgent constructor now accepts optional endpointSource param (default: "mock")
+- Added getEndpoints() private method: returns REAL_ENDPOINTS or MOCK_ENDPOINTS based on source
+- Updated fetchPoolData(): uses getEndpoints(), filters by url patterns OR category="pool"
+- Updated fetchWhaleActivity(): uses getEndpoints(), filters by url patterns OR category="whale"
+- Updated fetchSentimentData(): uses getEndpoints(), filters by url patterns OR category="sentiment"
+- Added getRealEndpointsAsEndpoints() and toEndpoint() helpers in real-endpoints.ts for type conversion
+- Study runner (study.ts): passes endpointSource based on mockMode to YieldOptimizerAgent
+- Agent debug mode (index.ts): always uses "mock" endpoint source
+- TypeScript type checks pass (npx tsc --noEmit)
+- Quick study test (--trials=1 --cycles=2) runs successfully
+PRD item completed: ENDPOINT-002
+Files: src/yield-agent.ts, src/real-endpoints.ts, src/study.ts, src/index.ts, prd-items.json
+Next: CONFIG-001 (create .env.example)

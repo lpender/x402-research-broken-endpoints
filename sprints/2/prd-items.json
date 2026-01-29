@@ -89,7 +89,7 @@
         "Real mode uses REAL_ENDPOINTS, mock mode uses MOCK_ENDPOINTS",
         "fetchPoolData/fetchWhaleActivity/fetchSentimentData route accordingly"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CONFIG-001",

@@ -335,12 +335,13 @@ async function main(): Promise<void> {
       const x402Client = createMockX402Client(config, rng);
       const zauthClient = createMockZauthClient(config, rng);
 
-      // Create agent
+      // Create agent (mock mode = mock endpoints)
       const agent = new YieldOptimizerAgent(
         agentMode,
         config,
         x402Client,
-        agentMode === 'with-zauth' ? zauthClient : undefined
+        agentMode === 'with-zauth' ? zauthClient : undefined,
+        "mock" // Agent debug mode always uses mock endpoints
       );
 
       // Run optimization cycles

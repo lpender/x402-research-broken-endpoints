@@ -106,3 +106,32 @@ export function estimateCycleCost(): number {
     return sum + (endpoint?.priceUsdc ?? 0);
   }, 0);
 }
+
+/**
+ * Convert RealEndpoint to Endpoint type (compatible with agent)
+ */
+export function toEndpoint(real: RealEndpoint): {
+  url: string;
+  name: string;
+  category: string;
+  priceUsdc: number;
+} {
+  return {
+    url: real.url,
+    name: real.name,
+    category: real.category,
+    priceUsdc: real.priceUsdc,
+  };
+}
+
+/**
+ * Get all real endpoints as Endpoint type (for agent compatibility)
+ */
+export function getRealEndpointsAsEndpoints(): Array<{
+  url: string;
+  name: string;
+  category: string;
+  priceUsdc: number;
+}> {
+  return getEnabledEndpoints().map(toEndpoint);
+}

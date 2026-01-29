@@ -290,7 +290,9 @@ async function runTrial(
   const x402Client = sharedX402Client ?? createMockX402Client(config, rng, mockMode);
   const zauthClient = mode === "with-zauth" ? createMockZauthClient(config, rng) : undefined;
 
-  const agent = new YieldOptimizerAgent(mode, config, x402Client, zauthClient);
+  // Determine endpoint source based on mock mode
+  const endpointSource = mockMode ? "mock" : "real";
+  const agent = new YieldOptimizerAgent(mode, config, x402Client, zauthClient, endpointSource);
 
   // Estimate cost per cycle (rough estimate for budget check)
   const estimatedCostPerCycle = 0.03; // ~$0.03 per cycle (3 queries @ ~$0.01)
