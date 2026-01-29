@@ -198,3 +198,4 @@ Task: BUDGET-001 - Create SpendTracker for budget enforcement
 PRD item completed: BUDGET-001
 Files: src/spend-tracker.ts, prd-items.json
 Next: BUDGET-002 (study aborts gracefully when budget exhausted)
+- Fixed PATH for claude binary using ENV instead of .bashrc. Files: Dockerfile
