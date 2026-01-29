@@ -1,0 +1,219 @@
+{
+  "items": [
+    {
+      "id": "YIELD-001",
+      "category": "yield-agent",
+      "description": "Create YieldOptimizerAgent class that runs multi-step DeFi optimization cycle",
+      "steps_to_verify": [
+        "File src/yield-agent.ts exists",
+        "Class exports YieldOptimizerAgent",
+        "runOptimizationCycle() returns OptimizationResult with poolData, whaleData, sentimentData, allocation",
+        "Constructor accepts mode ('no-zauth' | 'with-zauth') and clients"
+      ],
+      "passes": false
+    },
+    {
+      "id": "YIELD-002",
+      "category": "yield-agent",
+      "description": "Agent fetches pool data from multiple DeFi endpoints via x402",
+      "steps_to_verify": [
+        "fetchPoolData() queries Raydium, Orca, Kamino endpoints",
+        "Each query uses x402Client.queryEndpoint()",
+        "Returns array of PoolData with poolId, tokenA, tokenB, tvl, apy, volume24h",
+        "Handles partial failures gracefully (some endpoints fail, others succeed)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "YIELD-003",
+      "category": "yield-agent",
+      "description": "Agent fetches whale activity and sentiment data",
+      "steps_to_verify": [
+        "fetchWhaleActivity() returns WhaleMove[] with wallet, action, token, amount, significance",
+        "fetchSentimentData() returns SentimentScore[] with token, score (-1 to 1), confidence",
+        "Both methods use x402 micropayments"
+      ],
+      "passes": false
+    },
+    {
+      "id": "YIELD-004",
+      "category": "yield-agent",
+      "description": "Agent calculates optimal allocation based on aggregated data",
+      "steps_to_verify": [
+        "calculateOptimalAllocation() takes pool, whale, sentiment data",
+        "Returns Allocation with recommended pool, allocation percentage, reasoning",
+        "Weights decisions by data quality (penalizes missing/failed data sources)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "YIELD-005",
+      "category": "yield-agent",
+      "description": "With-zauth mode checks reliability before each query",
+      "steps_to_verify": [
+        "In with-zauth mode, calls zauthClient.checkReliability() before x402 query",
+        "Skips endpoints below 70% reliability threshold",
+        "Tracks zauth check costs separately from x402 costs"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ENDPOINT-001",
+      "category": "endpoints",
+      "description": "Enhanced mock endpoints return realistic DeFi data",
+      "steps_to_verify": [
+        "Pool responses include: poolId, tokenA, tokenB, tvl (1M-100M), apy (5-50%), volume24h, feeRate, impermanentLossRisk",
+        "Whale responses include: wallet (truncated address), action, token, amount, timestamp, significance (0-1)",
+        "Sentiment responses include: token, score (-1 to 1), confidence (0-1), sources array"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ENDPOINT-002",
+      "category": "endpoints",
+      "description": "Mock endpoints have configurable failure modes",
+      "steps_to_verify": [
+        "Each endpoint has mockFailureRate (0-1)",
+        "Failures return: empty data, error responses, or timeout simulation",
+        "Failure rate can be set per-endpoint or globally"
+      ],
+      "passes": false
+    },
+    {
+      "id": "STUDY-001",
+      "category": "study",
+      "description": "Scientific study runner executes matched trials",
+      "steps_to_verify": [
+        "runScientificStudy(config) runs N trials per condition",
+        "Each trial pair (no-zauth, with-zauth) uses same random seed",
+        "Default: 10 trials, 50 cycles each",
+        "Supports --real flag for real x402 payments"
+      ],
+      "passes": false
+    },
+    {
+      "id": "STUDY-002",
+      "category": "study",
+      "description": "Study collects per-iteration metrics",
+      "steps_to_verify": [
+        "Tracks per cycle: spentUsdc, burnUsdc, zauthCostUsdc, queriesAttempted, queriesFailed",
+        "Aggregates per trial: totalSpent, totalBurn, burnRate, avgLatency",
+        "Stores raw data for export"
+      ],
+      "passes": false
+    },
+    {
+      "id": "STATS-001",
+      "category": "statistics",
+      "description": "Statistical analysis module calculates significance",
+      "steps_to_verify": [
+        "mean() and standardDeviation() work correctly",
+        "confidenceInterval(values, 0.95) returns [lower, upper] bounds",
+        "tTest(group1, group2) returns { tStatistic, pValue }",
+        "cohensD(group1, group2) returns effect size"
+      ],
+      "passes": false
+    },
+    {
+      "id": "STATS-002",
+      "category": "statistics",
+      "description": "Effect size interpretation helper",
+      "steps_to_verify": [
+        "interpretEffectSize(d) returns: negligible (d<0.2), small (0.2-0.5), medium (0.5-0.8), large (>0.8)",
+        "Used in report generation for plain-English explanations"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REPORT-001",
+      "category": "report",
+      "description": "Console output shows summary tables",
+      "steps_to_verify": [
+        "printSummaryTable() shows: condition, trials, total spent, total burn, burn rate, net savings",
+        "Uses cli-table3 for formatting",
+        "Includes comparison row showing burn reduction percentage"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REPORT-002",
+      "category": "report",
+      "description": "Export functions generate CSV and JSON",
+      "steps_to_verify": [
+        "exportRawDataCsv() writes per-iteration data to results/study_TIMESTAMP.csv",
+        "exportSummaryJson() writes StudyResults to results/study_TIMESTAMP.json",
+        "Files include metadata: timestamp, config, git commit hash"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REPORT-003",
+      "category": "report",
+      "description": "Markdown report generation for publication",
+      "steps_to_verify": [
+        "generateMarkdownReport() creates results/study_TIMESTAMP.md",
+        "Includes: executive summary, methodology, results table, statistical analysis, conclusions",
+        "Statistical significance stated clearly (p-value, CI, effect size)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-001",
+      "category": "cli",
+      "description": "CLI supports --study command",
+      "steps_to_verify": [
+        "npx tsx src/index.ts --study runs scientific study",
+        "--trials=N sets trials per condition (default 10)",
+        "--cycles=N sets cycles per trial (default 50)",
+        "--real flag enables real x402 payments"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-002",
+      "category": "cli",
+      "description": "CLI supports --agent command for debugging",
+      "steps_to_verify": [
+        "npx tsx src/index.ts --agent --mode=with-zauth runs single agent",
+        "--cycles=N sets optimization cycles",
+        "Verbose output shows each step"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-003",
+      "category": "cli",
+      "description": "CLI shows progress during long studies",
+      "steps_to_verify": [
+        "Progress bar or percentage shown during study execution",
+        "Estimated time remaining displayed",
+        "Ctrl+C saves partial results before exit"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-001",
+      "category": "e2e",
+      "description": "End-to-end mock study produces valid results",
+      "steps_to_verify": [
+        "npx tsx src/index.ts --study --trials=2 --cycles=5 completes without error",
+        "CSV file generated in results/",
+        "JSON file generated in results/",
+        "Markdown report generated in results/",
+        "Statistical values are reasonable (not NaN, not Infinity)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-002",
+      "category": "e2e",
+      "description": "Reproducibility test passes",
+      "steps_to_verify": [
+        "Run study twice with --seed=12345",
+        "Compare output JSON files",
+        "Results are identical (deterministic)"
+      ],
+      "passes": false
+    }
+  ]
+}
