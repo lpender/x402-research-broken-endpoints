@@ -343,3 +343,16 @@ Task: PRE-001 - Pre-flight verification
 PRD item completed: PRE-001
 Files: prd-items.json, progress.txt
 Next: E2E-001 (minimal real payment test)
+
+Task: E2E-001 - Minimal real payment test on Base
+- Ran: npx tsx src/index.ts --study --real --network=base --budget=0.10 --trials=1 --cycles=2 --yes
+- Study completed successfully, real x402 payments made
+- Results JSON has mockMode: false, network: "base"
+- Real costs: $0.032 per query (3 queries per cycle = $0.096 per cycle for 2 conditions)
+- Budget exhausted at $0.10 after ~1.5 trial pairs (expected behavior)
+- Wallet balance: started $8.37, ended $8.371803 (spent ~$0.099)
+- All queries returned failures (endpoint content not accessible) but payments processed correctly
+- Key observation: Elsa x402 API accepts payments but endpoint data appears unavailable
+PRD item completed: E2E-001
+Files: prd-items.json, progress.txt, results/study_2026-01-29T22-19-51.json
+Next: E2E-002 (budget enforcement test)

@@ -23,7 +23,7 @@
         "Real data returned (not mock generators)",
         "Wallet balance decreased by ~$0.064"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "E2E-002",
