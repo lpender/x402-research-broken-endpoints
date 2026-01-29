@@ -185,3 +185,4 @@ Next: BUDGET-001 (create SpendTracker for budget enforcement)
 
 - Added docker-compose.yml w/ ~/.claude volume mount for auth persistence. Files: docker-compose.yml
 - Changed Claude install from npm to official script (curl). Files: Dockerfile
+- Updated Taskfile docker tasks to use docker-compose. Files: Taskfile.yml, docker-compose.yml
