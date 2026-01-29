@@ -289,3 +289,16 @@ Task: SAFETY-001, CLI-002 - Interactive confirmation before real spend
 PRD items completed: SAFETY-001, CLI-002
 Files: src/index.ts, prd-items.json
 Next: SAFETY-002 (show wallet balance command)
+
+Task: SAFETY-002, CLI-003 - Show wallet USDC balance command
+- Added --balance CLI flag parsing in parseCliArgs()
+- Created getWalletUsdcBalance(): uses Solana RPC getTokenAccountsByOwner to fetch USDC balance
+- USDC mint address: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v (mainnet)
+- Created showWalletBalance(): displays truncated address, full address, RPC URL, USDC balance
+- --balance requires SOLANA_PRIVATE_KEY, shows clear error if missing
+- Exits after showing balance (does not run study)
+- Updated help text with --balance option and example
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD items completed: SAFETY-002, CLI-003
+Files: src/index.ts, prd-items.json
+Next: E2E-001 (real mode study with small budget)

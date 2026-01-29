@@ -134,7 +134,7 @@
         "Shows wallet address (truncated) and balance",
         "Exits after showing balance (does not run study)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-001",
@@ -167,7 +167,7 @@
         "Requires SOLANA_PRIVATE_KEY in config",
         "Does not run study, just shows balance and exits"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "E2E-001",

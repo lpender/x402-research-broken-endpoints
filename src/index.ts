@@ -60,6 +60,108 @@ async function getWalletAddressFromPrivateKey(
 }
 
 /**
+ * USDC token mint address on Solana mainnet
+ */
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+/**
+ * Fetches the USDC balance for a wallet address using Solana RPC.
+ * Returns balance in USDC (6 decimals precision).
+ */
+async function getWalletUsdcBalance(
+  walletAddress: string,
+  rpcUrl: string
+): Promise<{ balance: number; error?: string }> {
+  try {
+    // Use getTokenAccountsByOwner RPC method to find USDC accounts
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenAccountsByOwner",
+        params: [
+          walletAddress,
+          { mint: USDC_MINT },
+          { encoding: "jsonParsed" },
+        ],
+      }),
+    });
+
+    const data = await response.json() as {
+      result?: {
+        value?: Array<{
+          account: {
+            data: {
+              parsed: {
+                info: {
+                  tokenAmount: {
+                    uiAmount: number;
+                  };
+                };
+              };
+            };
+          };
+        }>;
+      };
+      error?: { message: string };
+    };
+
+    if (data.error) {
+      return { balance: 0, error: data.error.message };
+    }
+
+    if (!data.result?.value || data.result.value.length === 0) {
+      return { balance: 0 }; // No USDC token account found
+    }
+
+    // Sum up all USDC token accounts (typically just one)
+    const totalBalance = data.result.value.reduce((sum, account) => {
+      const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
+      return sum + (amount || 0);
+    }, 0);
+
+    return { balance: totalBalance };
+  } catch (error) {
+    return {
+      balance: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Displays wallet USDC balance and exits.
+ */
+async function showWalletBalance(config: Config): Promise<void> {
+  console.log("\n" + "=".repeat(60));
+  console.log("WALLET BALANCE");
+  console.log("=".repeat(60));
+
+  const walletAddress = await getWalletAddressFromPrivateKey(
+    config.solanaPrivateKey
+  );
+  console.log(`Wallet: ${truncateWalletAddress(walletAddress)}`);
+  console.log(`Full address: ${walletAddress}`);
+  console.log(`RPC: ${config.solanaRpcUrl}`);
+  console.log("");
+
+  const { balance, error } = await getWalletUsdcBalance(
+    walletAddress,
+    config.solanaRpcUrl
+  );
+
+  if (error) {
+    console.log(`❌ Error fetching balance: ${error}`);
+  } else {
+    console.log(`USDC Balance: $${balance.toFixed(6)}`);
+  }
+
+  console.log("=".repeat(60) + "\n");
+}
+
+/**
  * Prompts user for confirmation before spending real money.
  * Returns true if user confirms (presses 'y'), false otherwise.
  */
@@ -275,7 +377,7 @@ async function runExperiment(config: Config): Promise<void> {
 
 // Parse CLI arguments
 interface CliArgs {
-  mode: 'study' | 'experiment' | 'agent';
+  mode: 'study' | 'experiment' | 'agent' | 'balance';
   trials?: number;
   cycles?: number;
   seed?: number;
@@ -283,6 +385,7 @@ interface CliArgs {
   budget?: number;
   yes?: boolean;
   help?: boolean;
+  balance?: boolean;
   agentMode?: 'no-zauth' | 'with-zauth';
 }
 
@@ -314,6 +417,9 @@ function parseCliArgs(): CliArgs {
       result.yes = true;
     } else if (arg === '--help' || arg === '-h') {
       result.help = true;
+    } else if (arg === '--balance') {
+      result.mode = 'balance';
+      result.balance = true;
     }
   }
 
@@ -330,6 +436,7 @@ USAGE:
 OPTIONS:
   --study              Run scientific study comparing no-zauth vs with-zauth
   --agent              Run single yield optimization agent (debugging mode)
+  --balance            Show wallet USDC balance and exit
   --mode=MODE          Agent mode: no-zauth or with-zauth (default: with-zauth)
   --trials=N           Number of trials per condition (default: 10)
   --cycles=N           Number of optimization cycles per trial/agent (default: 50)
@@ -358,6 +465,9 @@ EXAMPLES:
   # Run study with reproducible seed
   npx tsx src/index.ts --study --seed=12345
 
+  # Show wallet USDC balance
+  npx tsx src/index.ts --balance
+
   # Run original experiment (legacy mode)
   npx tsx src/index.ts
 `);
@@ -371,6 +481,18 @@ async function main(): Promise<void> {
     // Show help if requested
     if (cliArgs.help) {
       printHelp();
+      process.exit(0);
+    }
+
+    // Handle --balance mode
+    if (cliArgs.mode === 'balance') {
+      const config = loadConfig();
+      if (!config.solanaPrivateKey || config.solanaPrivateKey === 'mock') {
+        console.error("\nError: SOLANA_PRIVATE_KEY is required for --balance.");
+        console.error("Set it in your .env file or environment.\n");
+        process.exit(1);
+      }
+      await showWalletBalance(config);
       process.exit(0);
     }
 
