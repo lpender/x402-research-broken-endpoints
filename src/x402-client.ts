@@ -180,9 +180,25 @@ export function createMockX402Client(
   return new MockX402Client(config, rng, mockMode);
 }
 
+// Factory function for real x402 client
+export async function createRealX402Client(config: Config): Promise<RealX402Client> {
+  if (!config.solanaPrivateKey) {
+    throw new Error(
+      "SOLANA_PRIVATE_KEY is required for real mode. " +
+      "Set it in your .env file or environment."
+    );
+  }
+  const client = new RealX402Client(config);
+  await client.initialize();
+  return client;
+}
+
+// Type for either client (for external use)
+export type X402Client = MockX402Client | RealX402Client;
+
 // Unified interface for both clients
 export async function queryEndpoint(
-  client: MockX402Client | RealX402Client,
+  client: X402Client,
   endpoint: Endpoint,
   config: Config
 ): Promise<PaymentResult> {

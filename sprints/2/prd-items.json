@@ -21,7 +21,7 @@
         "Real client initialized once per study, reused across trials",
         "Mock mode behavior unchanged (verified with existing tests)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "REAL-003",
@@ -32,7 +32,7 @@
         "Factory initializes client and returns ready-to-use instance",
         "Throws clear error if SOLANA_PRIVATE_KEY missing"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "BUDGET-001",

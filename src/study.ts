@@ -8,7 +8,7 @@ import type {
 } from "./types.js";
 import type { Config } from "./config.js";
 import { YieldOptimizerAgent } from "./yield-agent.js";
-import { createMockX402Client } from "./x402-client.js";
+import { createMockX402Client, createRealX402Client, type X402Client } from "./x402-client.js";
 import { createMockZauthClient } from "./zauth-client.js";
 import {
   mean,
@@ -107,6 +107,14 @@ export async function runScientificStudy(
   const noZauthTrials: TrialResults[] = [];
   const withZauthTrials: TrialResults[] = [];
 
+  // Create x402 client once (real client initialized once, reused across trials)
+  let x402Client: X402Client | null = null;
+  if (!config.mockMode) {
+    console.log("Initializing real x402 client...");
+    x402Client = await createRealX402Client(baseConfig);
+    console.log("Real x402 client ready.\n");
+  }
+
   // Set up Ctrl+C handler
   const handleInterrupt = () => {
     if (isInterrupted) {
@@ -141,7 +149,8 @@ export async function runScientificStudy(
         config.cyclesPerTrial,
         trialSeed,
         baseConfig,
-        config.mockMode
+        config.mockMode,
+        x402Client
       );
       noZauthTrials.push(noZauthResult);
       progress.completedTrials++;
@@ -155,7 +164,8 @@ export async function runScientificStudy(
         config.cyclesPerTrial,
         trialSeed,
         baseConfig,
-        config.mockMode
+        config.mockMode,
+        x402Client
       );
       withZauthTrials.push(withZauthResult);
       progress.completedTrials++;
@@ -239,13 +249,14 @@ async function runTrial(
   cycles: number,
   seed: number,
   config: Config,
-  mockMode: boolean
+  mockMode: boolean,
+  sharedX402Client: X402Client | null = null
 ): Promise<TrialResults> {
   const rng = new SeededRandom(seed);
   const metrics: CycleMetrics[] = [];
 
-  // Create clients
-  const x402Client = createMockX402Client(config, rng, mockMode);
+  // Use shared real client if provided, otherwise create mock client
+  const x402Client = sharedX402Client ?? createMockX402Client(config, rng, mockMode);
   const zauthClient = mode === "with-zauth" ? createMockZauthClient(config, rng) : undefined;
 
   const agent = new YieldOptimizerAgent(mode, config, x402Client, zauthClient);
