@@ -1,0 +1,54 @@
+{
+  "items": [
+    {
+      "id": "PRE-001",
+      "category": "preflight",
+      "description": "Pre-flight verification before spending real USDC",
+      "steps_to_verify": [
+        "npx tsc --noEmit passes with no errors",
+        "npx tsx src/index.ts --balance --network=base shows wallet balance",
+        "Wallet has >= $1.50 USDC (buffer for safety)",
+        "EVM_PRIVATE_KEY in .env is set and starts with 0x"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-001",
+      "category": "e2e",
+      "description": "Real mode study completes with minimal budget on Base",
+      "steps_to_verify": [
+        "Run: npx tsx src/index.ts --study --real --network=base --budget=0.10 --trials=1 --cycles=2",
+        "Study completes without errors",
+        "Results JSON exists and has mockMode: false",
+        "Real data returned (not mock generators)",
+        "Wallet balance decreased by ~$0.064"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-002",
+      "category": "e2e",
+      "description": "Budget enforcement stops study correctly",
+      "steps_to_verify": [
+        "Run: npx tsx src/index.ts --study --real --network=base --budget=0.10 --trials=10 --cycles=50 --yes",
+        "Study stops before completing all trials",
+        "Console shows 'Budget exhausted' message",
+        "Partial results saved to files",
+        "Exit code is 0 (graceful stop, not error)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "DOC-001",
+      "category": "documentation",
+      "description": "Document E2E validation results in progress.txt",
+      "steps_to_verify": [
+        "progress.txt updated with Sprint 3 section",
+        "Actual vs expected costs documented",
+        "Any API quirks or response format observations noted",
+        "E2E-001 and E2E-002 marked as passes: true in root prd-items.json"
+      ],
+      "passes": false
+    }
+  ]
+}
