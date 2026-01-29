@@ -251,3 +251,13 @@ Task: ENDPOINT-002 - Agent uses real endpoints in real mode
 PRD item completed: ENDPOINT-002
 Files: src/yield-agent.ts, src/real-endpoints.ts, src/study.ts, src/index.ts, prd-items.json
 Next: CONFIG-001 (create .env.example)
+
+Task: CONFIG-001 - Verified .env.example exists with required variables
+- .env.example already exists in project root (created earlier)
+- Documents all required vars: SOLANA_PRIVATE_KEY, SOLANA_RPC_URL, MAX_USDC_SPEND
+- Also includes: MODE, ITERATIONS, DELAY_MS, MOCK_FAILURE_RATE, ZAUTH_DIRECTORY_URL, ZAUTH_CHECK_URL, OUTPUT_DIR, VERBOSE
+- Comments explain each variable's purpose
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: CONFIG-001
+Files: prd-items.json
+Next: CONFIG-002 (validate config for real mode)

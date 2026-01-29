@@ -100,7 +100,7 @@
         "Documents: SOLANA_PRIVATE_KEY, SOLANA_RPC_URL, MAX_USDC_SPEND",
         "Comments explain each variable's purpose"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CONFIG-002",
