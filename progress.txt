@@ -302,3 +302,17 @@ Task: SAFETY-002, CLI-003 - Show wallet USDC balance command
 PRD items completed: SAFETY-002, CLI-003
 Files: src/index.ts, prd-items.json
 Next: E2E-001 (real mode study with small budget)
+
+Task: E2E-001, E2E-002 - Blocked on external infrastructure
+- All Sprint 2 code implementation complete
+- E2E tests require external dependencies not available:
+  1. Real x402-enabled endpoints (placeholder URLs in real-endpoints.ts are not actual services)
+  2. Funded Solana wallet with USDC for test payments
+- These are manual verification steps per PRD "Verification" section
+- Mock mode study verified working: --study --trials=1 --cycles=2 completes successfully
+- TypeScript type checks pass (npx tsc --noEmit)
+- Budget enforcement code verified in BUDGET-002 with mock mode
+- Added "blocked" field to E2E items in prd-items.json
+PRD items: E2E-001, E2E-002 blocked on external infrastructure
+Files: prd-items.json, progress.txt
+Status: SPRINT 2 CODE COMPLETE - E2E verification requires external setup

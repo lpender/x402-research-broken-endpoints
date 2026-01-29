@@ -180,7 +180,8 @@
         "Results contain real endpoint responses (not mock)",
         "Transactions visible on Solana explorer"
       ],
-      "passes": false
+      "passes": false,
+      "blocked": "Requires real x402 endpoints and funded Solana wallet (external infrastructure)"
     },
     {
       "id": "E2E-002",
@@ -192,7 +193,8 @@
         "Message: 'Budget exhausted'",
         "Partial results saved to files"
       ],
-      "passes": false
+      "passes": false,
+      "blocked": "Requires real x402 endpoints and funded Solana wallet (external infrastructure)"
     }
   ]
 }
