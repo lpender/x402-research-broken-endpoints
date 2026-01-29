@@ -17,6 +17,9 @@ import {
 } from "./opportunity.js";
 import { runScientificStudy } from "./study.js";
 import { printFullReport, exportRawDataCsv, exportSummaryJson, generateMarkdownReport } from "./report.js";
+import { YieldOptimizerAgent } from "./yield-agent.js";
+import { createMockX402Client } from "./x402-client.js";
+import { createMockZauthClient } from "./zauth-client.js";
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -191,12 +194,13 @@ async function runExperiment(config: Config): Promise<void> {
 
 // Parse CLI arguments
 interface CliArgs {
-  mode: 'study' | 'experiment';
+  mode: 'study' | 'experiment' | 'agent';
   trials?: number;
   cycles?: number;
   seed?: number;
   real?: boolean;
   help?: boolean;
+  agentMode?: 'no-zauth' | 'with-zauth';
 }
 
 function parseCliArgs(): CliArgs {
@@ -206,12 +210,19 @@ function parseCliArgs(): CliArgs {
   for (const arg of args) {
     if (arg === '--study') {
       result.mode = 'study';
+    } else if (arg === '--agent') {
+      result.mode = 'agent';
     } else if (arg.startsWith('--trials=')) {
       result.trials = parseInt(arg.split('=')[1], 10);
     } else if (arg.startsWith('--cycles=')) {
       result.cycles = parseInt(arg.split('=')[1], 10);
     } else if (arg.startsWith('--seed=')) {
       result.seed = parseInt(arg.split('=')[1], 10);
+    } else if (arg.startsWith('--mode=')) {
+      const mode = arg.split('=')[1];
+      if (mode === 'no-zauth' || mode === 'with-zauth') {
+        result.agentMode = mode;
+      }
     } else if (arg === '--real') {
       result.real = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -231,8 +242,10 @@ USAGE:
 
 OPTIONS:
   --study              Run scientific study comparing no-zauth vs with-zauth
+  --agent              Run single yield optimization agent (debugging mode)
+  --mode=MODE          Agent mode: no-zauth or with-zauth (default: with-zauth)
   --trials=N           Number of trials per condition (default: 10)
-  --cycles=N           Number of optimization cycles per trial (default: 50)
+  --cycles=N           Number of optimization cycles per trial/agent (default: 50)
   --seed=N             Random seed for reproducibility (default: random)
   --real               Use real x402 payments instead of mock (default: mock)
   --help, -h           Show this help message
@@ -243,6 +256,12 @@ EXAMPLES:
 
   # Run quick test study
   npx tsx src/index.ts --study --trials=2 --cycles=5
+
+  # Run single agent in with-zauth mode (debugging)
+  npx tsx src/index.ts --agent --mode=with-zauth --cycles=5
+
+  # Run single agent in no-zauth mode
+  npx tsx src/index.ts --agent --mode=no-zauth --cycles=3
 
   # Run study with real payments
   npx tsx src/index.ts --study --trials=10 --cycles=50 --real
@@ -264,6 +283,145 @@ async function main(): Promise<void> {
     if (cliArgs.help) {
       printHelp();
       process.exit(0);
+    }
+
+    // Handle --agent mode (debugging)
+    if (cliArgs.mode === 'agent') {
+      const agentMode = cliArgs.agentMode ?? 'with-zauth';
+      const cycles = cliArgs.cycles ?? 5;
+      const seed = cliArgs.seed ?? Date.now();
+
+      console.log("\n" + "=".repeat(60));
+      console.log("YIELD OPTIMIZER AGENT - DEBUG MODE");
+      console.log("=".repeat(60));
+      console.log(`Mode: ${agentMode}`);
+      console.log(`Cycles: ${cycles}`);
+      console.log(`Seed: ${seed}`);
+      console.log("=".repeat(60) + "\n");
+
+      // Create verbose config
+      const config: Config = {
+        solanaPrivateKey: 'mock',
+        solanaRpcUrl: 'mock',
+        mode: 'mock',
+        iterations: cycles,
+        delayMs: 0,
+        maxUsdcSpend: 999999,
+        mockFailureRate: 0.3,
+        zauthDirectoryUrl: 'mock',
+        zauthCheckUrl: 'mock',
+        outputDir: 'results',
+        verbose: true, // Enable verbose output
+      };
+
+      // Create seeded RNG for deterministic behavior
+      const createSeededRng = (seed: number) => {
+        let state = seed;
+        return {
+          next: () => {
+            state = (state * 1103515245 + 12345) & 0x7fffffff;
+            return state / 0x7fffffff;
+          }
+        };
+      };
+
+      const rng = createSeededRng(seed);
+
+      // Create clients
+      const x402Client = createMockX402Client(config, rng);
+      const zauthClient = createMockZauthClient(config, rng);
+
+      // Create agent
+      const agent = new YieldOptimizerAgent(
+        agentMode,
+        config,
+        x402Client,
+        agentMode === 'with-zauth' ? zauthClient : undefined
+      );
+
+      // Run optimization cycles
+      let totalSpent = 0;
+      let totalBurn = 0;
+      let totalZauthCost = 0;
+      let totalQueriesAttempted = 0;
+      let totalQueriesFailed = 0;
+
+      for (let i = 0; i < cycles; i++) {
+        console.log(`\n--- Cycle ${i + 1}/${cycles} ---\n`);
+
+        const result = await agent.runOptimizationCycle();
+
+        // Show results
+        console.log(`\nPool Data (${result.poolData.length} pools):`);
+        result.poolData.forEach((pool, idx) => {
+          console.log(
+            `  ${idx + 1}. ${pool.poolId}: ${pool.tokenA}-${pool.tokenB} | ` +
+            `APY: ${pool.apy.toFixed(2)}% | TVL: $${(pool.tvl / 1_000_000).toFixed(2)}M | ` +
+            `IL Risk: ${pool.impermanentLossRisk}`
+          );
+        });
+
+        console.log(`\nWhale Activity (${result.whaleData.length} moves):`);
+        result.whaleData.forEach((whale, idx) => {
+          console.log(
+            `  ${idx + 1}. ${whale.wallet}: ${whale.action} ${whale.amount.toLocaleString()} ${whale.token} | ` +
+            `Significance: ${(whale.significance * 100).toFixed(0)}%`
+          );
+        });
+
+        console.log(`\nSentiment Data (${result.sentimentData.length} scores):`);
+        result.sentimentData.forEach((sentiment, idx) => {
+          const scoreStr = sentiment.score > 0 ? `+${sentiment.score.toFixed(2)}` : sentiment.score.toFixed(2);
+          console.log(
+            `  ${idx + 1}. ${sentiment.token}: ${scoreStr} | ` +
+            `Confidence: ${(sentiment.confidence * 100).toFixed(0)}%`
+          );
+        });
+
+        console.log(`\nOptimal Allocation:`);
+        console.log(`  Pool: ${result.allocation.poolId}`);
+        console.log(`  Percentage: ${result.allocation.percentage}%`);
+        console.log(`  Reasoning: ${result.allocation.reasoning}`);
+
+        console.log(`\nCycle Metrics:`);
+        console.log(`  Queries Attempted: ${result.queriesAttempted}`);
+        console.log(`  Queries Failed: ${result.queriesFailed}`);
+        console.log(`  Total Spent: $${result.totalSpent.toFixed(6)}`);
+        console.log(`  Total Burn: $${result.totalBurn.toFixed(6)}`);
+        if (agentMode === 'with-zauth') {
+          console.log(`  Zauth Cost: $${result.zauthCost.toFixed(6)}`);
+        }
+        console.log(`  Burn Rate: ${result.totalSpent > 0 ? ((result.totalBurn / result.totalSpent) * 100).toFixed(2) : 0}%`);
+
+        // Accumulate totals
+        totalSpent += result.totalSpent;
+        totalBurn += result.totalBurn;
+        totalZauthCost += result.zauthCost;
+        totalQueriesAttempted += result.queriesAttempted;
+        totalQueriesFailed += result.queriesFailed;
+      }
+
+      // Summary
+      console.log("\n" + "=".repeat(60));
+      console.log("SUMMARY");
+      console.log("=".repeat(60));
+      console.log(`Total Cycles: ${cycles}`);
+      console.log(`Total Queries Attempted: ${totalQueriesAttempted}`);
+      console.log(`Total Queries Failed: ${totalQueriesFailed}`);
+      console.log(`Failure Rate: ${totalQueriesAttempted > 0 ? ((totalQueriesFailed / totalQueriesAttempted) * 100).toFixed(2) : 0}%`);
+      console.log(`Total Spent: $${totalSpent.toFixed(6)}`);
+      console.log(`Total Burn: $${totalBurn.toFixed(6)}`);
+      if (agentMode === 'with-zauth') {
+        console.log(`Total Zauth Cost: $${totalZauthCost.toFixed(6)}`);
+        const netSpent = totalSpent - totalZauthCost;
+        console.log(`Net Spent (excl. Zauth): $${netSpent.toFixed(6)}`);
+      }
+      console.log(`Burn Rate: ${totalSpent > 0 ? ((totalBurn / totalSpent) * 100).toFixed(2) : 0}%`);
+      console.log(`Avg Spend per Cycle: $${(totalSpent / cycles).toFixed(6)}`);
+      console.log(`Avg Burn per Cycle: $${(totalBurn / cycles).toFixed(6)}`);
+      console.log("=".repeat(60) + "\n");
+
+      return;
     }
 
     // Handle --study mode

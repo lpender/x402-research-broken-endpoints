@@ -90,3 +90,16 @@ Task: CLI-001 - CLI supports --study command
 PRD item completed: CLI-001
 Files: src/index.ts, prd-items.json
 Next: CLI-002 (--agent command for debugging)
+Task: CLI-002 - CLI supports --agent command for debugging
+- Added --agent mode to CLI: runs single YieldOptimizerAgent in debug mode with verbose output
+- --mode=no-zauth|with-zauth flag controls agent mode (default: with-zauth)
+- --cycles=N sets optimization cycles (default: 5)
+- Verbose output shows: pool data, whale activity, sentiment data, optimal allocation, per-cycle metrics
+- Summary at end: total queries attempted/failed, failure rate, total spent/burn, avg per cycle
+- Uses seeded RNG for deterministic behavior: --seed=N produces identical results
+- Config.verbose=true enables detailed logging: [Zauth] skip messages, [Burn] failure messages
+- Tested both modes: with-zauth skips unreliable endpoints, no-zauth queries all (shows burn)
+PRD item completed: CLI-002
+Files: src/index.ts, prd-items.json
+Next: CLI-003 (progress indicators during long studies)
+

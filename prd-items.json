@@ -178,7 +178,7 @@
         "--cycles=N sets optimization cycles",
         "Verbose output shows each step"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-003",
