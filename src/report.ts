@@ -1,10 +1,20 @@
 import Table from "cli-table3";
-import type { StudyResults } from "./types.js";
+import * as fs from "fs";
+import * as path from "path";
+import type { StudyResults, StudyConfig } from "./types.js";
 import { interpretEffectSize } from "./statistics.js";
 
 export interface ReportGenerator {
   printSummaryTable(results: StudyResults): void;
   printStatisticalAnalysis(results: StudyResults): void;
+  exportRawDataCsv(results: StudyResults, outputPath: string, config: StudyConfig): void;
+  exportSummaryJson(results: StudyResults, outputPath: string, config: StudyConfig): void;
+}
+
+interface ExportMetadata {
+  timestamp: string;
+  config: StudyConfig;
+  gitCommitHash?: string;
 }
 
 export function printSummaryTable(results: StudyResults): void {
@@ -120,4 +130,124 @@ export function printFullReport(results: StudyResults): void {
   printSummaryTable(results);
   printStatisticalAnalysis(results);
   console.log("");
+}
+
+function getGitCommitHash(): string | undefined {
+  try {
+    const { execSync } = require("child_process");
+    return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+  } catch (error) {
+    return undefined;
+  }
+}
+
+function ensureDirectoryExists(filePath: string): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+export function exportRawDataCsv(
+  results: StudyResults,
+  outputPath: string,
+  config: StudyConfig
+): void {
+  ensureDirectoryExists(outputPath);
+
+  const metadata: ExportMetadata = {
+    timestamp: new Date().toISOString(),
+    config,
+    gitCommitHash: getGitCommitHash(),
+  };
+
+  // CSV header
+  const headers = [
+    "condition",
+    "trial",
+    "cycle",
+    "spentUsdc",
+    "burnUsdc",
+    "zauthCostUsdc",
+    "queriesAttempted",
+    "queriesFailed",
+    "latencyMs",
+  ];
+
+  const rows: string[] = [headers.join(",")];
+
+  // Add metadata as comments
+  rows.unshift(`# Timestamp: ${metadata.timestamp}`);
+  rows.unshift(`# Trials per condition: ${config.trialsPerCondition}`);
+  rows.unshift(`# Cycles per trial: ${config.cyclesPerTrial}`);
+  rows.unshift(`# Base seed: ${config.baseSeed}`);
+  rows.unshift(`# Mock mode: ${config.mockMode}`);
+  if (metadata.gitCommitHash) {
+    rows.unshift(`# Git commit: ${metadata.gitCommitHash}`);
+  }
+  rows.unshift("# Scientific Study Raw Data");
+  rows.push(""); // Blank line after metadata
+
+  // No-zauth data
+  results.noZauth.trials.forEach((trial, trialIdx) => {
+    trial.metrics.forEach((cycle, cycleIdx) => {
+      rows.push(
+        [
+          "no-zauth",
+          trialIdx,
+          cycleIdx,
+          cycle.spentUsdc,
+          cycle.burnUsdc,
+          cycle.zauthCostUsdc,
+          cycle.queriesAttempted,
+          cycle.queriesFailed,
+          cycle.latencyMs,
+        ].join(",")
+      );
+    });
+  });
+
+  // With-zauth data
+  results.withZauth.trials.forEach((trial, trialIdx) => {
+    trial.metrics.forEach((cycle, cycleIdx) => {
+      rows.push(
+        [
+          "with-zauth",
+          trialIdx,
+          cycleIdx,
+          cycle.spentUsdc,
+          cycle.burnUsdc,
+          cycle.zauthCostUsdc,
+          cycle.queriesAttempted,
+          cycle.queriesFailed,
+          cycle.latencyMs,
+        ].join(",")
+      );
+    });
+  });
+
+  fs.writeFileSync(outputPath, rows.join("\n"));
+  console.log(`Raw data exported to: ${outputPath}`);
+}
+
+export function exportSummaryJson(
+  results: StudyResults,
+  outputPath: string,
+  config: StudyConfig
+): void {
+  ensureDirectoryExists(outputPath);
+
+  const metadata: ExportMetadata = {
+    timestamp: new Date().toISOString(),
+    config,
+    gitCommitHash: getGitCommitHash(),
+  };
+
+  const output = {
+    metadata,
+    results,
+  };
+
+  fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
+  console.log(`Summary JSON exported to: ${outputPath}`);
 }

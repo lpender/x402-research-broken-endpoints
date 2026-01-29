@@ -55,3 +55,12 @@ Task: REPORT-001 - Console summary tables with cli-table3
 PRD item completed: REPORT-001
 Files: src/report.ts, prd-items.json
 Next: REPORT-002 (CSV/JSON export)
+Task: REPORT-002 - CSV/JSON export functions
+- Created exportRawDataCsv(): writes per-iteration data to CSV with headers (condition, trial, cycle, spentUsdc, burnUsdc, zauthCostUsdc, queriesAttempted, queriesFailed, latencyMs)
+- CSV includes metadata comments: timestamp, trials/cycles config, base seed, mock mode flag, git commit hash
+- Created exportSummaryJson(): writes StudyResults + metadata (timestamp, config, gitCommitHash) as JSON
+- Both functions auto-create output directory if missing (fs.mkdirSync recursive)
+- getGitCommitHash(): execSync "git rev-parse HEAD" to capture commit hash for reproducibility
+PRD item completed: REPORT-002
+Files: src/report.ts, prd-items.json
+Next: REPORT-003 (markdown report generation)

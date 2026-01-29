@@ -144,7 +144,7 @@
         "exportSummaryJson() writes StudyResults to results/study_TIMESTAMP.json",
         "Files include metadata: timestamp, config, git commit hash"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "REPORT-003",
