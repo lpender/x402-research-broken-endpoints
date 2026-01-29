@@ -152,3 +152,13 @@ Task: Added Taskfile.yml + installed taskfile.dev
 - CLI_ARGS passthrough for custom flags
 Files: Taskfile.yml
 
+--- Sprint 2: Real x402 Payments ---
+Task: Created sprint structure, moved sprint 1 PRD
+- Moved PRD.md and prd-items.json to sprints/1/
+- Created sprints/2/PRD.md: wire up --real mode with actual x402 payments
+- Created sprints/2/prd-items.json: 17 items across 7 categories (dependencies, client, budget, endpoints, config, safety, cli, e2e)
+- Root PRD.md and prd-items.json now symlink to sprints/2/
+Key items: install x402 deps, wire RealX402Client, budget tracking, real endpoints, safety confirmations
+Files: sprints/1/*, sprints/2/*, PRD.md (symlink), prd-items.json (symlink)
+Next: REAL-001 (install x402 dependencies)
+
