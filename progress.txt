@@ -45,3 +45,13 @@ Task: STUDY-001, STUDY-002, STATS-001, STATS-002 - Scientific study infrastructu
 PRD items completed: STUDY-001, STUDY-002, STATS-001, STATS-002
 Files: src/study.ts, src/statistics.ts, src/x402-client.ts, src/zauth-client.ts, prd-items.json
 Next: REPORT-001 (console summary tables)
+
+Task: REPORT-001 - Console summary tables with cli-table3
+- Created src/report.ts with printSummaryTable(), printStatisticalAnalysis(), printFullReport()
+- Summary table displays: condition, trials, total spent/burn, burn rate, net savings, burn reduction %
+- Statistical analysis table: burn reduction, 95% CI, p-value, effect size (with plain-English interpretation), net savings per cycle, break-even failure rate
+- cli-table3 formatting with proper column widths and alignment
+- Tested with mock data: tables render correctly with proper formatting and calculations
+PRD item completed: REPORT-001
+Files: src/report.ts, prd-items.json
+Next: REPORT-002 (CSV/JSON export)
