@@ -10,7 +10,7 @@
         "Wallet has >= $1.50 USDC (buffer for safety)",
         "EVM_PRIVATE_KEY in .env is set and starts with 0x"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "E2E-001",

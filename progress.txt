@@ -333,3 +333,13 @@ Task: NET-001 through NET-004 - Add multi-network support for Base and Solana
 PRD items completed: NET-001, NET-002, NET-003, NET-004
 Files: package.json, src/config.ts, src/x402-client.ts, src/zauth-client.ts, src/index.ts, src/types.ts, src/study.ts, src/real-endpoints.ts, .env.example, prd-items.json
 Status: Multi-network support complete, tested with mock mode, typecheck passes
+
+--- Sprint 3: E2E Validation of Real x402 Payments ---
+Task: PRE-001 - Pre-flight verification
+- TypeScript compiles without errors (npx tsc --noEmit passes)
+- EVM_PRIVATE_KEY in .env is set and starts with 0x
+- Wallet balance: $8.37 USDC on Base (>= $1.50 required)
+- --balance --network=base command works correctly
+PRD item completed: PRE-001
+Files: prd-items.json, progress.txt
+Next: E2E-001 (minimal real payment test)
