@@ -3,6 +3,7 @@
 import {
   loadConfig,
   validateConfig,
+  validateRealModeConfig,
   type Config,
   type IterationResult,
   type ExperimentMode,
@@ -437,21 +438,6 @@ async function main(): Promise<void> {
       const mockMode = !cliArgs.real;
       const budgetUsdc = cliArgs.budget;
 
-      // Validate: --real requires --budget
-      if (!mockMode && budgetUsdc === undefined) {
-        console.error("\n❌ Error: Budget required for real mode");
-        console.error("   Use --budget=<amount> to set max USDC spend (e.g., --budget=5.00)");
-        console.error("\n   Example: npx tsx src/index.ts --study --real --budget=5.00\n");
-        process.exit(1);
-      }
-
-      // Validate: budget must be positive
-      if (budgetUsdc !== undefined && budgetUsdc <= 0) {
-        console.error("\n❌ Error: Budget must be greater than 0");
-        console.error(`   Received: --budget=${budgetUsdc}\n`);
-        process.exit(1);
-      }
-
       console.log("\n" + "=".repeat(60));
       console.log("ZAUTH X402 SCIENTIFIC STUDY");
       console.log("=".repeat(60));
@@ -494,6 +480,7 @@ async function main(): Promise<void> {
         // Load actual config for real mode
         baseConfig = loadConfig();
         validateConfig(baseConfig);
+        validateRealModeConfig(baseConfig, budgetUsdc);
       }
 
       // Run the scientific study

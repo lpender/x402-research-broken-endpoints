@@ -261,3 +261,16 @@ Task: CONFIG-001 - Verified .env.example exists with required variables
 PRD item completed: CONFIG-001
 Files: prd-items.json
 Next: CONFIG-002 (validate config for real mode)
+
+Task: CONFIG-002 - Validate config for real mode
+- Created validateRealModeConfig() in src/config.ts
+- Checks SOLANA_PRIVATE_KEY is non-empty (clear error: "Set it in your .env file")
+- Checks budget is provided and > 0 (clear error with example usage)
+- Warns if using default Solana RPC URL
+- Updated src/index.ts to import and call validateRealModeConfig() for real mode
+- Removed inline budget validation from index.ts (now in config.ts)
+- TypeScript type checks pass (npx tsc --noEmit)
+- Tested: --real without key, --real without budget, --budget=0, --budget=-5 all show clear errors
+PRD item completed: CONFIG-002
+Files: src/config.ts, src/index.ts, prd-items.json
+Next: SAFETY-001 (interactive confirmation before real spend)

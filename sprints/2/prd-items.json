@@ -111,7 +111,7 @@
         "validateConfig() checks budget > 0 for real mode",
         "Clear error messages for missing config"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "SAFETY-001",

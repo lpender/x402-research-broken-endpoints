@@ -171,3 +171,50 @@ export function validateConfig(config: Config): void {
     throw new Error("Mock failure rate must be between 0 and 1");
   }
 }
+
+/**
+ * Validates configuration specifically for real payment mode.
+ * @param config - The config object to validate
+ * @param budgetUsdc - The budget amount in USDC (required for real mode)
+ * @throws Error with clear message if validation fails
+ */
+export function validateRealModeConfig(
+  config: Config,
+  budgetUsdc: number | undefined
+): void {
+  // Check SOLANA_PRIVATE_KEY is non-empty
+  if (!config.solanaPrivateKey || config.solanaPrivateKey.trim() === "") {
+    throw new Error(
+      "SOLANA_PRIVATE_KEY is required for real mode.\n" +
+        "Set it in your .env file:\n" +
+        "  SOLANA_PRIVATE_KEY=your_base58_private_key"
+    );
+  }
+
+  // Check budget is provided and positive
+  if (budgetUsdc === undefined) {
+    throw new Error(
+      "Budget is required for real mode.\n" +
+        "Use --budget=<amount> to set max USDC spend.\n" +
+        "Example: --study --real --budget=5.00"
+    );
+  }
+
+  if (budgetUsdc <= 0) {
+    throw new Error(
+      `Budget must be greater than 0.\n` +
+        `Received: ${budgetUsdc}\n` +
+        "Example: --budget=5.00"
+    );
+  }
+
+  // Check RPC URL is set (can use default but warn if not explicit)
+  if (
+    !config.solanaRpcUrl ||
+    config.solanaRpcUrl === "https://api.mainnet-beta.solana.com"
+  ) {
+    console.warn(
+      "⚠️  Using default Solana RPC URL. Consider setting SOLANA_RPC_URL in .env for better reliability."
+    );
+  }
+}
