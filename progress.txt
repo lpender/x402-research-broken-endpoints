@@ -125,3 +125,13 @@ PRD item completed: E2E-001
 Files: prd-items.json, progress.txt
 Next: E2E-002 (reproducibility test)
 
+Task: E2E-002 - Reproducibility test validation
+- Ran study twice with --seed=12345 --trials=2 --cycles=3
+- Both runs produced identical statistical results: burn reduction 72%, p=0.05, Cohen's d=2.028, net savings $0.0333, CI [-42.22%, 146.22%]
+- Only latencyMs varied slightly (system timing), all core metrics (spentUsdc, burnUsdc, queries attempted/failed) deterministic
+- Seeded RNG ensures reproducibility: same seed → same endpoint selections, failure patterns, decisions
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: E2E-002
+Files: prd-items.json, progress.txt
+Status: ALL PRD ITEMS COMPLETE
+

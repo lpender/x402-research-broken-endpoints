@@ -213,7 +213,7 @@
         "Compare output JSON files",
         "Results are identical (deterministic)"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
