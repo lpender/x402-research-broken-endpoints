@@ -3,11 +3,11 @@
     {
       "id": "REAL-001",
       "category": "dependencies",
-      "description": "Install x402 payment dependencies",
+      "description": "Install x402 payment dependencies for both networks",
       "steps_to_verify": [
-        "npm install @x402/fetch @x402/svm @solana/kit @scure/base succeeds",
+        "npm install @x402/fetch @x402/evm @x402/svm viem @solana/kit @scure/base succeeds",
         "No TypeScript errors related to x402 imports",
-        "RealX402Client.initialize() compiles without error"
+        "RealX402Client.initialize() compiles without error for both networks"
       ],
       "passes": true
     },
@@ -26,11 +26,12 @@
     {
       "id": "REAL-003",
       "category": "client",
-      "description": "Export createRealX402Client factory function",
+      "description": "Export createRealX402Client factory function with network support",
       "steps_to_verify": [
-        "src/x402-client.ts exports createRealX402Client(config)",
+        "src/x402-client.ts exports createRealX402Client(config, network)",
         "Factory initializes client and returns ready-to-use instance",
-        "Throws clear error if SOLANA_PRIVATE_KEY missing"
+        "Throws clear error if EVM_PRIVATE_KEY missing for Base",
+        "Throws clear error if SOLANA_PRIVATE_KEY missing for Solana"
       ],
       "passes": true
     },
@@ -72,11 +73,11 @@
     {
       "id": "ENDPOINT-001",
       "category": "endpoints",
-      "description": "Create real endpoint registry",
+      "description": "Create real endpoint registry with network support",
       "steps_to_verify": [
         "src/real-endpoints.ts exports REAL_ENDPOINTS array",
-        "At least one endpoint per category (pool, whale, sentiment)",
-        "Each endpoint has: url, name, category, priceUsdc, x402Enabled"
+        "At least one endpoint per category (pool, whale, sentiment) per network",
+        "Each endpoint has: url, name, category, priceUsdc, x402Enabled, network"
       ],
       "passes": true
     },
@@ -94,10 +95,11 @@
     {
       "id": "CONFIG-001",
       "category": "config",
-      "description": "Create .env.example with required variables",
+      "description": "Create .env.example with required variables for both networks",
       "steps_to_verify": [
         ".env.example exists in project root",
-        "Documents: SOLANA_PRIVATE_KEY, SOLANA_RPC_URL, MAX_USDC_SPEND",
+        "Documents: EVM_PRIVATE_KEY, BASE_RPC_URL for Base",
+        "Documents: SOLANA_PRIVATE_KEY, SOLANA_RPC_URL for Solana",
         "Comments explain each variable's purpose"
       ],
       "passes": true
@@ -105,10 +107,11 @@
     {
       "id": "CONFIG-002",
       "category": "config",
-      "description": "Validate config for real mode",
+      "description": "Validate config for real mode based on network",
       "steps_to_verify": [
-        "validateConfig() checks SOLANA_PRIVATE_KEY is non-empty for real mode",
-        "validateConfig() checks budget > 0 for real mode",
+        "validateRealModeConfig() accepts network parameter",
+        "Checks EVM_PRIVATE_KEY is non-empty for Base network",
+        "Checks SOLANA_PRIVATE_KEY is non-empty for Solana network",
         "Clear error messages for missing config"
       ],
       "passes": true
@@ -118,7 +121,7 @@
       "category": "safety",
       "description": "Interactive confirmation before real spend",
       "steps_to_verify": [
-        "Real mode shows: budget, estimated spend, wallet address (truncated)",
+        "Real mode shows: network, budget, estimated spend, wallet address (truncated)",
         "Prompts: 'Press y to continue'",
         "Any key except 'y' aborts with 'Aborted by user'",
         "--yes flag skips confirmation"
@@ -128,9 +131,10 @@
     {
       "id": "SAFETY-002",
       "category": "safety",
-      "description": "Show wallet balance command",
+      "description": "Show wallet balance command with network support",
       "steps_to_verify": [
-        "--balance flag shows USDC balance of configured wallet",
+        "--balance --network=base shows USDC balance on Base",
+        "--balance --network=solana shows USDC balance on Solana",
         "Shows wallet address (truncated) and balance",
         "Exits after showing balance (does not run study)"
       ],
@@ -161,40 +165,89 @@
     {
       "id": "CLI-003",
       "category": "cli",
-      "description": "Add --balance CLI flag",
+      "description": "Add --balance CLI flag with network support",
       "steps_to_verify": [
         "--balance shows wallet USDC balance",
-        "Requires SOLANA_PRIVATE_KEY in config",
+        "Requires EVM_PRIVATE_KEY for Base network",
+        "Requires SOLANA_PRIVATE_KEY for Solana network",
         "Does not run study, just shows balance and exits"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NET-001",
+      "category": "network",
+      "description": "Add --network CLI flag for network selection",
+      "steps_to_verify": [
+        "--network=base selects Base/EVM",
+        "--network=solana selects Solana/SVM",
+        "Default is 'base' (more endpoints available)",
+        "Invalid network shows error with valid options"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NET-002",
+      "category": "network",
+      "description": "x402 client supports both networks",
+      "steps_to_verify": [
+        "createRealX402Client(config, network) accepts network parameter",
+        "Base: uses @x402/evm + viem + registerExactEvmScheme",
+        "Solana: uses @x402/svm + @solana/kit + registerExactSvmScheme",
+        "Both share same interface for study runner"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NET-003",
+      "category": "network",
+      "description": "Wallet utils support both networks",
+      "steps_to_verify": [
+        "getWalletAddress(config, network) derives correct format",
+        "getWalletUsdcBalance(address, config, network) queries correct contract",
+        "Base USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "Solana USDC: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NET-004",
+      "category": "network",
+      "description": "Endpoint registry supports both networks",
+      "steps_to_verify": [
+        "REAL_ENDPOINTS has 'network' field (base | solana)",
+        "getEndpointsForNetwork(network) filters by network",
+        "Base has Elsa endpoints configured",
+        "Solana endpoints documented as TBD or placeholder"
       ],
       "passes": true
     },
     {
       "id": "E2E-001",
       "category": "e2e",
-      "description": "Real mode study completes with small budget",
+      "description": "Real mode study completes with small budget on Base",
       "steps_to_verify": [
-        "Configure .env with funded test wallet",
-        "Run: --study --real --budget=0.50 --trials=1 --cycles=2",
+        "Configure .env with funded Base wallet (EVM_PRIVATE_KEY)",
+        "Run: --study --real --network=base --budget=0.50 --trials=1 --cycles=2",
         "Study completes (or stops at budget)",
         "Results contain real endpoint responses (not mock)",
-        "Transactions visible on Solana explorer"
+        "Transactions visible on BaseScan"
       ],
       "passes": false,
-      "blocked": "Requires real x402 endpoints and funded Solana wallet (external infrastructure)"
+      "blocked": "Requires real x402 endpoints and funded Base wallet (external infrastructure)"
     },
     {
       "id": "E2E-002",
       "category": "e2e",
       "description": "Budget enforcement stops study correctly",
       "steps_to_verify": [
-        "Run: --study --real --budget=0.10 --trials=10 --cycles=50",
+        "Run: --study --real --network=base --budget=0.10 --trials=10 --cycles=50",
         "Study stops before completing all trials",
         "Message: 'Budget exhausted'",
         "Partial results saved to files"
       ],
       "passes": false,
-      "blocked": "Requires real x402 endpoints and funded Solana wallet (external infrastructure)"
+      "blocked": "Requires real x402 endpoints and funded Base wallet (external infrastructure)"
     }
   ]
 }
