@@ -15,12 +15,14 @@ WORKDIR /workspace
 # Use existing node user (UID 1000)
 USER node
 
+# Set PATH for claude before install
+ENV PATH="/home/node/.local/bin:/home/node/.claude/local/bin:${PATH}"
+
 # Install Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Add alias for claude with skip permissions and ensure PATH includes claude
-RUN echo 'export PATH="$HOME/.claude/local/bin:$PATH"' >> /home/node/.bashrc && \
-    echo 'alias cc="claude --dangerously-skip-permissions"' >> /home/node/.bashrc
+# Add alias for claude with skip permissions
+RUN echo 'alias cc="claude --dangerously-skip-permissions"' >> /home/node/.bashrc
 
 # Default command
 CMD ["bash"]
