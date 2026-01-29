@@ -44,7 +44,7 @@
         "canSpend(amount) returns false if would exceed budget",
         "getRemainingBudget() returns budgetUsdc - spentUsdc"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "BUDGET-002",

@@ -186,3 +186,15 @@ Next: BUDGET-001 (create SpendTracker for budget enforcement)
 - Added docker-compose.yml w/ ~/.claude volume mount for auth persistence. Files: docker-compose.yml
 - Changed Claude install from npm to official script (curl). Files: Dockerfile
 - Updated Taskfile docker tasks to use docker-compose. Files: Taskfile.yml, docker-compose.yml
+
+Task: BUDGET-001 - Create SpendTracker for budget enforcement
+- Created src/spend-tracker.ts with SpendTracker class and createSpendTracker factory
+- recordSpend(amount): adds to cumulative spentUsdc total
+- canSpend(amount): returns false if spentUsdc + amount > budgetUsdc
+- getRemainingBudget(): returns budgetUsdc - spentUsdc
+- Added helpers: getSpentAmount(), getBudgetLimit(), isExhausted(), getSummary()
+- Input validation: budget must be >0, spend amounts must be non-negative
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD item completed: BUDGET-001
+Files: src/spend-tracker.ts, prd-items.json
+Next: BUDGET-002 (study aborts gracefully when budget exhausted)
