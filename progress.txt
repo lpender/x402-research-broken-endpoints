@@ -135,3 +135,20 @@ PRD item completed: E2E-002
 Files: prd-items.json, progress.txt
 Status: ALL PRD ITEMS COMPLETE
 
+Task: Created README.md (documentation)
+- Comprehensive project overview: what it is, how it works, scientific methodology
+- Installation and usage instructions: full study, debug mode, CLI options
+- Results interpretation: metrics explanation, p-value guide, example output
+- Project structure, reproducibility info, development status
+- Example workflows for quick validation and production runs
+Files: README.md, progress.txt
+Next: N/A (all PRD items complete, documentation added)
+
+Task: Added Taskfile.yml + installed taskfile.dev
+- Installed taskfile.dev v3.48.0 to ~/.local/bin
+- Created Taskfile.yml with tasks: build, typecheck, start, study, agent, clean, help
+- Study variants: study (default), study:quick (2/5), study:full (30/100)
+- Agent variants: agent:no-zauth, agent:with-zauth for debug mode
+- CLI_ARGS passthrough for custom flags
+Files: Taskfile.yml
+
