@@ -369,3 +369,12 @@ Task: E2E-002 - Budget enforcement test on Base
 PRD item completed: E2E-002
 Files: prd-items.json, progress.txt, results/study_2026-01-29T22-21-33.*
 Next: DOC-001 (final documentation update)
+
+Task: DOC-001 - Final documentation update
+- progress.txt already has Sprint 3 section with E2E-001 and E2E-002 documentation
+- Actual costs: $0.032/query vs expected ~$0.032 (matches)
+- API quirks documented: Elsa x402 API accepts payments but returns query failures
+- E2E-001 and E2E-002 both marked passes: true in prd-items.json
+PRD item completed: DOC-001
+Files: prd-items.json, progress.txt
+Status: ALL SPRINT 3 PRD ITEMS COMPLETE
