@@ -274,3 +274,18 @@ Task: CONFIG-002 - Validate config for real mode
 PRD item completed: CONFIG-002
 Files: src/config.ts, src/index.ts, prd-items.json
 Next: SAFETY-001 (interactive confirmation before real spend)
+
+Task: SAFETY-001, CLI-002 - Interactive confirmation before real spend
+- Added --yes (-y) CLI flag parsing to skip confirmation
+- Added confirmRealModeSpend() function: shows budget, estimated spend, wallet address (truncated), prompts "Press 'y' to continue"
+- Added getWalletAddressFromPrivateKey(): derives public key using @solana/kit, truncates for display
+- Added truncateWalletAddress(): shows first 4 and last 4 chars (e.g., "7xKp...3mNq")
+- Estimated spend calc: trials × cycles × 2 conditions × estimateCycleCost()
+- Non-interactive terminal detection: shows "Use --yes to skip confirmation" and aborts gracefully
+- Any key except 'y' shows "Aborted by user" and exits with code 0
+- --yes flag shows "Skipping confirmation (--yes flag)" and proceeds
+- Mock mode has no confirmation prompt (unchanged behavior)
+- TypeScript type checks pass (npx tsc --noEmit)
+PRD items completed: SAFETY-001, CLI-002
+Files: src/index.ts, prd-items.json
+Next: SAFETY-002 (show wallet balance command)

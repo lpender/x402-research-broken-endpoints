@@ -21,9 +21,89 @@ import { printFullReport, exportRawDataCsv, exportSummaryJson, generateMarkdownR
 import { YieldOptimizerAgent } from "./yield-agent.js";
 import { createMockX402Client } from "./x402-client.js";
 import { createMockZauthClient } from "./zauth-client.js";
+import { estimateCycleCost } from "./real-endpoints.js";
+import * as readline from "readline";
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Truncates a wallet address for display (e.g., "7xKp...3mNq")
+ */
+function truncateWalletAddress(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
+
+/**
+ * Derives the public key (wallet address) from a base58 private key.
+ * Uses @solana/kit for key derivation.
+ */
+async function getWalletAddressFromPrivateKey(
+  privateKeyBase58: string
+): Promise<string> {
+  try {
+    const { base58 } = await import("@scure/base");
+    const { createKeyPairFromBytes, getAddressFromPublicKey } = await import(
+      "@solana/kit"
+    );
+
+    const privateKeyBytes = base58.decode(privateKeyBase58);
+    const keyPair = await createKeyPairFromBytes(privateKeyBytes);
+    const address = await getAddressFromPublicKey(keyPair.publicKey);
+    return address;
+  } catch (error) {
+    // Fallback: return truncated private key indicator
+    return `[key:${truncateWalletAddress(privateKeyBase58)}]`;
+  }
+}
+
+/**
+ * Prompts user for confirmation before spending real money.
+ * Returns true if user confirms (presses 'y'), false otherwise.
+ */
+async function confirmRealModeSpend(params: {
+  budgetUsdc: number;
+  estimatedSpendUsdc: number;
+  walletAddress: string;
+  trials: number;
+  cycles: number;
+}): Promise<boolean> {
+  const { budgetUsdc, estimatedSpendUsdc, walletAddress, trials, cycles } =
+    params;
+
+  console.log("\n⚠️  REAL MODE - This will spend actual USDC!\n");
+  console.log(`  Budget:     $${budgetUsdc.toFixed(2)}`);
+  console.log(
+    `  Est. spend: $${estimatedSpendUsdc.toFixed(2)} (${trials} trials × ${cycles} cycles × ~$${(estimatedSpendUsdc / (trials * cycles * 2)).toFixed(4)}/cycle)`
+  );
+  console.log(`  Wallet:     ${truncateWalletAddress(walletAddress)}`);
+  console.log("");
+
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    // Handle terminal that isn't a TTY (e.g., piped input)
+    if (!process.stdin.isTTY) {
+      rl.close();
+      console.log("  Non-interactive terminal. Use --yes to skip confirmation.");
+      resolve(false);
+      return;
+    }
+
+    rl.question("  Press 'y' to continue, any other key to abort: ", (answer) => {
+      rl.close();
+      const confirmed = answer.toLowerCase() === "y";
+      if (!confirmed) {
+        console.log("\n  Aborted by user.\n");
+      }
+      resolve(confirmed);
+    });
+  });
 }
 
 async function runIteration(
@@ -201,6 +281,7 @@ interface CliArgs {
   seed?: number;
   real?: boolean;
   budget?: number;
+  yes?: boolean;
   help?: boolean;
   agentMode?: 'no-zauth' | 'with-zauth';
 }
@@ -229,6 +310,8 @@ function parseCliArgs(): CliArgs {
       result.real = true;
     } else if (arg.startsWith('--budget=')) {
       result.budget = parseFloat(arg.split('=')[1]);
+    } else if (arg === '--yes' || arg === '-y') {
+      result.yes = true;
     } else if (arg === '--help' || arg === '-h') {
       result.help = true;
     }
@@ -253,6 +336,7 @@ OPTIONS:
   --seed=N             Random seed for reproducibility (default: random)
   --real               Use real x402 payments instead of mock (default: mock)
   --budget=N           Max USDC spend limit (required for --real mode)
+  --yes, -y            Skip confirmation prompt for real mode (use in scripts)
   --help, -h           Show this help message
 
 EXAMPLES:
@@ -450,15 +534,6 @@ async function main(): Promise<void> {
       }
       console.log("=".repeat(60) + "\n");
 
-      // Safety warning for real mode
-      if (!mockMode) {
-        console.log("⚠️  WARNING: Running in REAL mode!");
-        console.log("This will spend actual USDC on x402 payments.");
-        console.log(`Estimated max spend: ~$${(trials * cycles * 0.05 * 2).toFixed(2)}`);
-        console.log("Press Ctrl+C within 5 seconds to abort...\n");
-        await sleep(5000);
-      }
-
       // Create base config (load from .env or use defaults)
       let baseConfig: Config;
       if (mockMode) {
@@ -481,6 +556,36 @@ async function main(): Promise<void> {
         baseConfig = loadConfig();
         validateConfig(baseConfig);
         validateRealModeConfig(baseConfig, budgetUsdc);
+      }
+
+      // Safety confirmation for real mode
+      if (!mockMode) {
+        const skipConfirmation = cliArgs.yes ?? false;
+
+        if (!skipConfirmation) {
+          // Get wallet address for display
+          const walletAddress = await getWalletAddressFromPrivateKey(
+            baseConfig.solanaPrivateKey
+          );
+
+          // Estimate spend: trials × cycles × 2 conditions × cost per cycle
+          const costPerCycle = estimateCycleCost();
+          const estimatedSpend = trials * cycles * 2 * costPerCycle;
+
+          const confirmed = await confirmRealModeSpend({
+            budgetUsdc: budgetUsdc!,
+            estimatedSpendUsdc: estimatedSpend,
+            walletAddress,
+            trials,
+            cycles,
+          });
+
+          if (!confirmed) {
+            process.exit(0);
+          }
+        } else {
+          console.log("⚠️  REAL MODE - Skipping confirmation (--yes flag)\n");
+        }
       }
 
       // Run the scientific study

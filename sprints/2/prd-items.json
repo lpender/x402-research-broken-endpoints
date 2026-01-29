@@ -123,7 +123,7 @@
         "Any key except 'y' aborts with 'Aborted by user'",
         "--yes flag skips confirmation"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "SAFETY-002",
@@ -156,7 +156,7 @@
         "Only affects real mode (mock mode has no prompt)",
         "Useful for scripted/CI runs"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLI-003",
