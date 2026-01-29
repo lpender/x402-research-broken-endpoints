@@ -103,3 +103,15 @@ PRD item completed: CLI-002
 Files: src/index.ts, prd-items.json
 Next: CLI-003 (progress indicators during long studies)
 
+Task: CLI-003 - Progress indicators during long studies
+- Added ProgressTracker: tracks totalTrials, totalCycles, completedTrials, startTime, lastUpdateTime
+- Progress display: percentage (0-100%), current trial N/M, ETA (minutes/seconds remaining)
+- ETA calculation: workRate = completedWork/elapsed, remainingWork = totalWork - completedWork, estimatedSecondsRemaining = remainingWork/workRate
+- Ctrl+C handler: first press → saves partialResults + message "press Ctrl+C again to force quit", second press → force exit
+- Partial results handling: ensures paired trials (truncates unpaired trial if interrupted mid-trial), throws error if <1 complete trial pair
+- Progress updates during study: clear line with \r, write progress string, pad with spaces to overwrite previous
+- Tested with 3 trials/5 cycles: shows 0%, 16.7%, 33.3%, 50%, 66.7%, 83.3%, 100% with accurate ETA
+PRD item completed: CLI-003
+Files: src/study.ts, prd-items.json, progress.txt
+Next: E2E-001 (end-to-end mock study validation)
+

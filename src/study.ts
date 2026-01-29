@@ -18,6 +18,61 @@ import {
   cohensD,
 } from "./statistics.js";
 
+interface ProgressTracker {
+  totalTrials: number;
+  totalCycles: number;
+  completedTrials: number;
+  completedCycles: number;
+  startTime: number;
+  lastUpdateTime: number;
+}
+
+function createProgressTracker(
+  totalTrials: number,
+  totalCycles: number
+): ProgressTracker {
+  return {
+    totalTrials,
+    totalCycles,
+    completedTrials: 0,
+    completedCycles: 0,
+    startTime: Date.now(),
+    lastUpdateTime: Date.now(),
+  };
+}
+
+function updateProgress(tracker: ProgressTracker): void {
+  const now = Date.now();
+  const elapsed = (now - tracker.startTime) / 1000; // seconds
+
+  // Calculate total progress (trials * 2 for both conditions)
+  const totalWork = tracker.totalTrials * 2;
+  const completedWork = tracker.completedTrials;
+  const progressPercent = (completedWork / totalWork) * 100;
+
+  // Estimate time remaining
+  const workRate = completedWork / elapsed; // work units per second
+  const remainingWork = totalWork - completedWork;
+  const estimatedSecondsRemaining = remainingWork / workRate;
+
+  // Format time remaining
+  let timeRemaining = "calculating...";
+  if (isFinite(estimatedSecondsRemaining) && estimatedSecondsRemaining > 0) {
+    const minutes = Math.floor(estimatedSecondsRemaining / 60);
+    const seconds = Math.floor(estimatedSecondsRemaining % 60);
+    timeRemaining = `${minutes}m ${seconds}s`;
+  }
+
+  // Clear line and write progress
+  process.stdout.write("\r");
+  process.stdout.write(
+    `Progress: ${progressPercent.toFixed(1)}% | Trial ${Math.floor(completedWork / 2) + 1}/${tracker.totalTrials} | ETA: ${timeRemaining}` +
+      " ".repeat(10)
+  );
+
+  tracker.lastUpdateTime = now;
+}
+
 type AgentMode = "no-zauth" | "with-zauth";
 
 class SeededRandom {
@@ -34,6 +89,10 @@ class SeededRandom {
   }
 }
 
+let partialResults: { noZauth: TrialResults[]; withZauth: TrialResults[] } | null =
+  null;
+let isInterrupted = false;
+
 export async function runScientificStudy(
   config: StudyConfig,
   baseConfig: Config
@@ -48,37 +107,84 @@ export async function runScientificStudy(
   const noZauthTrials: TrialResults[] = [];
   const withZauthTrials: TrialResults[] = [];
 
-  // Run matched pairs of trials
-  for (let trialIdx = 0; trialIdx < config.trialsPerCondition; trialIdx++) {
-    const trialSeed = config.baseSeed + trialIdx;
-    console.log(`\nTrial ${trialIdx + 1}/${config.trialsPerCondition}`);
-
-    // Run no-zauth condition
-    console.log(`  Running no-zauth (seed: ${trialSeed})...`);
-    const noZauthResult = await runTrial(
-      "no-zauth",
-      config.cyclesPerTrial,
-      trialSeed,
-      baseConfig,
-      config.mockMode
-    );
-    noZauthTrials.push(noZauthResult);
+  // Set up Ctrl+C handler
+  const handleInterrupt = () => {
+    if (isInterrupted) {
+      console.log("\n\nForce quit - no results saved.");
+      process.exit(1);
+    }
+    isInterrupted = true;
+    partialResults = { noZauth: noZauthTrials, withZauth: withZauthTrials };
     console.log(
-      `    Burn rate: ${(noZauthResult.burnRate * 100).toFixed(2)}%`
+      "\n\nInterrupted! Saving partial results... (press Ctrl+C again to force quit)"
+    );
+  };
+
+  process.on("SIGINT", handleInterrupt);
+
+  try {
+    const progress = createProgressTracker(
+      config.trialsPerCondition,
+      config.cyclesPerTrial
     );
 
-    // Run with-zauth condition with same seed
-    console.log(`  Running with-zauth (seed: ${trialSeed})...`);
-    const withZauthResult = await runTrial(
-      "with-zauth",
-      config.cyclesPerTrial,
-      trialSeed,
-      baseConfig,
-      config.mockMode
-    );
-    withZauthTrials.push(withZauthResult);
-    console.log(
-      `    Burn rate: ${(withZauthResult.burnRate * 100).toFixed(2)}%`
+    // Run matched pairs of trials
+    for (let trialIdx = 0; trialIdx < config.trialsPerCondition; trialIdx++) {
+      if (isInterrupted) break;
+
+      const trialSeed = config.baseSeed + trialIdx;
+
+      // Run no-zauth condition
+      updateProgress(progress);
+      const noZauthResult = await runTrial(
+        "no-zauth",
+        config.cyclesPerTrial,
+        trialSeed,
+        baseConfig,
+        config.mockMode
+      );
+      noZauthTrials.push(noZauthResult);
+      progress.completedTrials++;
+
+      if (isInterrupted) break;
+
+      // Run with-zauth condition with same seed
+      updateProgress(progress);
+      const withZauthResult = await runTrial(
+        "with-zauth",
+        config.cyclesPerTrial,
+        trialSeed,
+        baseConfig,
+        config.mockMode
+      );
+      withZauthTrials.push(withZauthResult);
+      progress.completedTrials++;
+    }
+
+    // Clear progress line
+    process.stdout.write("\r" + " ".repeat(80) + "\r");
+
+    if (isInterrupted) {
+      // Ensure we have paired trials (remove unpaired trial if exists)
+      const minTrials = Math.min(noZauthTrials.length, withZauthTrials.length);
+      noZauthTrials.length = minTrials;
+      withZauthTrials.length = minTrials;
+
+      console.log(
+        `\nPartial study completed: ${minTrials}/${config.trialsPerCondition} trials`
+      );
+    } else {
+      console.log("\nStudy completed successfully!");
+    }
+  } finally {
+    // Clean up interrupt handler
+    process.off("SIGINT", handleInterrupt);
+  }
+
+  // Ensure we have at least 1 trial to analyze
+  if (noZauthTrials.length === 0 || withZauthTrials.length === 0) {
+    throw new Error(
+      "Study interrupted too early - no complete trial pairs to analyze"
     );
   }
 

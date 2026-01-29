@@ -189,7 +189,7 @@
         "Estimated time remaining displayed",
         "Ctrl+C saves partial results before exit"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "E2E-001",
