@@ -1,0 +1,198 @@
+{
+  "items": [
+    {
+      "id": "REAL-001",
+      "category": "dependencies",
+      "description": "Install x402 payment dependencies",
+      "steps_to_verify": [
+        "npm install @x402/fetch @x402/svm @solana/kit @scure/base succeeds",
+        "No TypeScript errors related to x402 imports",
+        "RealX402Client.initialize() compiles without error"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REAL-002",
+      "category": "client",
+      "description": "Wire study runner to use RealX402Client when mockMode=false",
+      "steps_to_verify": [
+        "src/study.ts imports and uses RealX402Client conditionally",
+        "runTrial() receives client as parameter (not created internally)",
+        "Real client initialized once per study, reused across trials",
+        "Mock mode behavior unchanged (verified with existing tests)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REAL-003",
+      "category": "client",
+      "description": "Export createRealX402Client factory function",
+      "steps_to_verify": [
+        "src/x402-client.ts exports createRealX402Client(config)",
+        "Factory initializes client and returns ready-to-use instance",
+        "Throws clear error if SOLANA_PRIVATE_KEY missing"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUDGET-001",
+      "category": "budget",
+      "description": "Create SpendTracker for budget enforcement",
+      "steps_to_verify": [
+        "src/spend-tracker.ts exports SpendTracker class",
+        "recordSpend(amount) adds to cumulative total",
+        "canSpend(amount) returns false if would exceed budget",
+        "getRemainingBudget() returns budgetUsdc - spentUsdc"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUDGET-002",
+      "category": "budget",
+      "description": "Study aborts gracefully when budget exhausted",
+      "steps_to_verify": [
+        "Study checks canSpend() before each cycle",
+        "If budget exceeded, saves partial results",
+        "Console shows: 'Budget exhausted: spent $X of $Y'",
+        "Exit code 0 (graceful stop, not error)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUDGET-003",
+      "category": "budget",
+      "description": "CLI requires --budget for --real mode",
+      "steps_to_verify": [
+        "--real without --budget shows error: 'Budget required for real mode'",
+        "--budget=5.00 sets budget to 5 USDC",
+        "Budget passed to SpendTracker"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ENDPOINT-001",
+      "category": "endpoints",
+      "description": "Create real endpoint registry",
+      "steps_to_verify": [
+        "src/real-endpoints.ts exports REAL_ENDPOINTS array",
+        "At least one endpoint per category (pool, whale, sentiment)",
+        "Each endpoint has: url, name, category, priceUsdc, x402Enabled"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ENDPOINT-002",
+      "category": "endpoints",
+      "description": "Agent uses real endpoints in real mode",
+      "steps_to_verify": [
+        "YieldOptimizerAgent accepts endpoint source parameter",
+        "Real mode uses REAL_ENDPOINTS, mock mode uses MOCK_ENDPOINTS",
+        "fetchPoolData/fetchWhaleActivity/fetchSentimentData route accordingly"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CONFIG-001",
+      "category": "config",
+      "description": "Create .env.example with required variables",
+      "steps_to_verify": [
+        ".env.example exists in project root",
+        "Documents: SOLANA_PRIVATE_KEY, SOLANA_RPC_URL, MAX_USDC_SPEND",
+        "Comments explain each variable's purpose"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CONFIG-002",
+      "category": "config",
+      "description": "Validate config for real mode",
+      "steps_to_verify": [
+        "validateConfig() checks SOLANA_PRIVATE_KEY is non-empty for real mode",
+        "validateConfig() checks budget > 0 for real mode",
+        "Clear error messages for missing config"
+      ],
+      "passes": false
+    },
+    {
+      "id": "SAFETY-001",
+      "category": "safety",
+      "description": "Interactive confirmation before real spend",
+      "steps_to_verify": [
+        "Real mode shows: budget, estimated spend, wallet address (truncated)",
+        "Prompts: 'Press y to continue'",
+        "Any key except 'y' aborts with 'Aborted by user'",
+        "--yes flag skips confirmation"
+      ],
+      "passes": false
+    },
+    {
+      "id": "SAFETY-002",
+      "category": "safety",
+      "description": "Show wallet balance command",
+      "steps_to_verify": [
+        "--balance flag shows USDC balance of configured wallet",
+        "Shows wallet address (truncated) and balance",
+        "Exits after showing balance (does not run study)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-001",
+      "category": "cli",
+      "description": "Add --budget CLI flag",
+      "steps_to_verify": [
+        "--budget=N parsed as float",
+        "Passed to StudyConfig",
+        "Shows in study header output"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-002",
+      "category": "cli",
+      "description": "Add --yes CLI flag",
+      "steps_to_verify": [
+        "--yes skips confirmation prompt",
+        "Only affects real mode (mock mode has no prompt)",
+        "Useful for scripted/CI runs"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-003",
+      "category": "cli",
+      "description": "Add --balance CLI flag",
+      "steps_to_verify": [
+        "--balance shows wallet USDC balance",
+        "Requires SOLANA_PRIVATE_KEY in config",
+        "Does not run study, just shows balance and exits"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-001",
+      "category": "e2e",
+      "description": "Real mode study completes with small budget",
+      "steps_to_verify": [
+        "Configure .env with funded test wallet",
+        "Run: --study --real --budget=0.50 --trials=1 --cycles=2",
+        "Study completes (or stops at budget)",
+        "Results contain real endpoint responses (not mock)",
+        "Transactions visible on Solana explorer"
+      ],
+      "passes": false
+    },
+    {
+      "id": "E2E-002",
+      "category": "e2e",
+      "description": "Budget enforcement stops study correctly",
+      "steps_to_verify": [
+        "Run: --study --real --budget=0.10 --trials=10 --cycles=50",
+        "Study stops before completing all trials",
+        "Message: 'Budget exhausted'",
+        "Partial results saved to files"
+      ],
+      "passes": false
+    }
+  ]
+}
