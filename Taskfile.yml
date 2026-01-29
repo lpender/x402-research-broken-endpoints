@@ -76,9 +76,9 @@ tasks:
   docker:build:
     desc: Build the Docker image
     cmds:
-      - docker build -t zauth-study .
+      - docker-compose build
 
   docker:
-    desc: Start interactive Docker container with workspace mounted
+    desc: Start interactive Docker container with workspace and Claude auth mounted
     cmds:
-      - docker run -it --rm -v "$(pwd):/workspace" -w /workspace -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY zauth-study
+      - docker-compose run --rm dev

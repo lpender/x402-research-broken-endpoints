@@ -4,5 +4,7 @@ services:
     volumes:
       - .:/workspace
       - ~/.claude:/home/node/.claude
+    environment:
+      - ANTHROPIC_API_KEY
     stdin_open: true
     tty: true
