@@ -61,7 +61,7 @@ async function runIteration(
       result.latencyMs = zauthResult.latencyMs;
       // In real mode, we'd pay for the zauth check (~$0.005)
       // In mock mode, it's free
-      if (mode !== "mock" && config.mode !== "mock") {
+      if (config.mode !== "mock") {
         result.spentUsdc = 0.005; // zauth check cost
       }
       return result;

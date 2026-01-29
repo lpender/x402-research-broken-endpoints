@@ -21,3 +21,13 @@ Task: YIELD-001 - Created YieldOptimizerAgent class
 - Handles partial failures gracefully: continues with available data
 Files: src/types.ts (new shared interfaces), src/yield-agent.ts
 Next: YIELD-002 (already implemented in YIELD-001 as fetchPoolData())
+
+Task: ENDPOINT-001 - Enhanced mock endpoints with realistic DeFi data
+- Pool data: Added feeRate (correlates with APY: >30%=1%, >15%=0.5%, else 0.3%) and impermanentLossRisk (stable-stable=low, stable-volatile=medium, volatile-volatile=high)
+- Pool tvl range: 1M-100M, apy range: 5-50% as per spec
+- Whale data: Added significance field (0-1 based on amount/10M cap), truncated address format (abc123...xyz9), added "transfer" action type
+- Sentiment data: Added sources array with realistic provider names (Twitter/Reddit, CoinGecko, on-chain metrics, etc)
+- Fixed type error in src/index.ts line 64: removed redundant mode check (mode always 'with-zauth' in that branch)
+PRD items completed: YIELD-002, YIELD-003, YIELD-004, YIELD-005, ENDPOINT-001, ENDPOINT-002 (all already implemented)
+Files: src/endpoints.ts, src/index.ts, prd-items.json
+Next: STUDY-001 (create scientific study runner)

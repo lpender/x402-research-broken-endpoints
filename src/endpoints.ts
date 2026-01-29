@@ -58,44 +58,80 @@ export interface MockPoolData {
 
 export interface MockWhaleData {
   address: string;
-  action: "buy" | "sell";
+  action: "buy" | "sell" | "transfer";
   token: string;
   amount: number;
   timestamp: number;
+  significance: number; // 0-1 market impact score
 }
 
 export interface MockSentimentData {
   token: string;
   sentiment: "bullish" | "bearish" | "neutral";
-  score: number;
-  confidence: number;
+  score: number; // -1 to 1
+  confidence: number; // 0 to 1
+  sources: string[]; // Data source names
 }
 
 export function generateMockPoolData(): MockPoolData[] {
   const pools = ["SOL-USDC", "RAY-SOL", "ORCA-USDC", "JTO-SOL", "BONK-SOL"];
   return pools.map((pool, i) => {
     const [tokenA, tokenB] = pool.split("-");
+    const tvl = Math.random() * 99_000_000 + 1_000_000; // 1M-100M range
+    const apy = Math.random() * 45 + 5; // 5-50% range
+
+    // Assess impermanent loss risk
+    const stablecoins = ["USDC", "USDT", "DAI"];
+    let impermanentLossRisk: "low" | "medium" | "high";
+    if (stablecoins.includes(tokenA) && stablecoins.includes(tokenB)) {
+      impermanentLossRisk = "low";
+    } else if (stablecoins.includes(tokenA) || stablecoins.includes(tokenB)) {
+      impermanentLossRisk = "medium";
+    } else {
+      impermanentLossRisk = "high";
+    }
+
+    // Fee rate correlates with APY
+    let feeRate: number;
+    if (apy > 30) {
+      feeRate = 0.01; // 1%
+    } else if (apy > 15) {
+      feeRate = 0.005; // 0.5%
+    } else {
+      feeRate = 0.003; // 0.3%
+    }
+
     return {
       poolId: `pool_${i}_${Date.now()}`,
       tokenA,
       tokenB,
-      tvl: Math.random() * 10000000 + 100000,
-      apy: Math.random() * 50 + 5,
-      volume24h: Math.random() * 5000000 + 50000,
+      tvl,
+      apy,
+      volume24h: Math.random() * 5_000_000 + 50_000,
+      feeRate,
+      impermanentLossRisk,
     };
   });
 }
 
 export function generateMockWhaleData(): MockWhaleData[] {
-  const actions: Array<"buy" | "sell"> = ["buy", "sell"];
+  const actions: Array<"buy" | "sell" | "transfer"> = ["buy", "sell", "transfer"];
   const tokens = ["SOL", "JTO", "BONK", "WIF", "PYTH"];
-  return Array.from({ length: 5 }, (_, i) => ({
-    address: `whale_${Math.random().toString(36).substring(7)}`,
-    action: actions[Math.floor(Math.random() * 2)],
-    token: tokens[i],
-    amount: Math.random() * 1000000 + 10000,
-    timestamp: Date.now() - Math.random() * 3600000,
-  }));
+  return Array.from({ length: 5 }, (_, i) => {
+    const amount = Math.random() * 1_000_000 + 10_000;
+    // Calculate significance (0-1 based on amount)
+    const maxWhaleAmount = 10_000_000;
+    const significance = Math.min(amount / maxWhaleAmount, 1);
+
+    return {
+      address: `${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 6)}`, // Truncated address format
+      action: actions[Math.floor(Math.random() * 3)],
+      token: tokens[i],
+      amount,
+      timestamp: Date.now() - Math.random() * 3_600_000,
+      significance,
+    };
+  });
 }
 
 export function generateMockSentimentData(): MockSentimentData[] {
@@ -105,11 +141,20 @@ export function generateMockSentimentData(): MockSentimentData[] {
     "bearish",
     "neutral",
   ];
-  return tokens.map((token) => ({
+  const sources = [
+    ["Twitter", "Reddit", "Discord"],
+    ["CoinGecko", "CoinMarketCap"],
+    ["On-chain metrics", "Whale tracker"],
+    ["News aggregator"],
+    ["Social sentiment API", "Trading volume analysis"],
+  ];
+
+  return tokens.map((token, i) => ({
     token,
     sentiment: sentiments[Math.floor(Math.random() * 3)],
     score: Math.random() * 2 - 1, // -1 to 1
     confidence: Math.random() * 0.5 + 0.5, // 0.5 to 1
+    sources: sources[i] || ["Unknown"],
   }));
 }
 

@@ -22,7 +22,7 @@
         "Returns array of PoolData with poolId, tokenA, tokenB, tvl, apy, volume24h",
         "Handles partial failures gracefully (some endpoints fail, others succeed)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "YIELD-003",
@@ -33,7 +33,7 @@
         "fetchSentimentData() returns SentimentScore[] with token, score (-1 to 1), confidence",
         "Both methods use x402 micropayments"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "YIELD-004",
@@ -44,7 +44,7 @@
         "Returns Allocation with recommended pool, allocation percentage, reasoning",
         "Weights decisions by data quality (penalizes missing/failed data sources)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "YIELD-005",
@@ -55,7 +55,7 @@
         "Skips endpoints below 70% reliability threshold",
         "Tracks zauth check costs separately from x402 costs"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ENDPOINT-001",
@@ -66,7 +66,7 @@
         "Whale responses include: wallet (truncated address), action, token, amount, timestamp, significance (0-1)",
         "Sentiment responses include: token, score (-1 to 1), confidence (0-1), sources array"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ENDPOINT-002",
@@ -77,7 +77,7 @@
         "Failures return: empty data, error responses, or timeout simulation",
         "Failure rate can be set per-endpoint or globally"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STUDY-001",
