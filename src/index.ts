@@ -7,6 +7,7 @@ import {
   type Config,
   type IterationResult,
   type ExperimentMode,
+  type Network,
 } from "./config.js";
 import { MOCK_ENDPOINTS, selectRandomEndpoint } from "./endpoints.js";
 import { createX402Client, queryEndpoint } from "./x402-client.js";
@@ -37,92 +38,145 @@ function truncateWalletAddress(address: string): string {
 }
 
 /**
- * Derives the public key (wallet address) from a base58 private key.
- * Uses @solana/kit for key derivation.
+ * Derives the public key (wallet address) from a private key.
+ * Handles both Base (EVM) and Solana networks.
  */
-async function getWalletAddressFromPrivateKey(
-  privateKeyBase58: string
+async function getWalletAddress(
+  config: Config,
+  network: Network
 ): Promise<string> {
   try {
-    const { base58 } = await import("@scure/base");
-    const { createKeyPairFromBytes, getAddressFromPublicKey } = await import(
-      "@solana/kit"
-    );
+    if (network === "base") {
+      const { privateKeyToAccount } = await import("viem/accounts");
+      const account = privateKeyToAccount(config.evmPrivateKey as `0x${string}`);
+      return account.address;
+    } else {
+      const { base58 } = await import("@scure/base");
+      const { createKeyPairFromBytes, getAddressFromPublicKey } = await import(
+        "@solana/kit"
+      );
 
-    const privateKeyBytes = base58.decode(privateKeyBase58);
-    const keyPair = await createKeyPairFromBytes(privateKeyBytes);
-    const address = await getAddressFromPublicKey(keyPair.publicKey);
-    return address;
+      const privateKeyBytes = base58.decode(config.solanaPrivateKey);
+      const keyPair = await createKeyPairFromBytes(privateKeyBytes);
+      const address = await getAddressFromPublicKey(keyPair.publicKey);
+      return address;
+    }
   } catch (error) {
-    // Fallback: return truncated private key indicator
-    return `[key:${truncateWalletAddress(privateKeyBase58)}]`;
+    // Fallback: return truncated key indicator
+    const key = network === "base" ? config.evmPrivateKey : config.solanaPrivateKey;
+    return `[key:${truncateWalletAddress(key)}]`;
   }
 }
 
 /**
- * USDC token mint address on Solana mainnet
+ * USDC token addresses
  */
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 /**
- * Fetches the USDC balance for a wallet address using Solana RPC.
+ * Fetches the USDC balance for a wallet address.
+ * Handles both Base (EVM) and Solana networks.
  * Returns balance in USDC (6 decimals precision).
  */
 async function getWalletUsdcBalance(
   walletAddress: string,
-  rpcUrl: string
+  config: Config,
+  network: Network
 ): Promise<{ balance: number; error?: string }> {
   try {
-    // Use getTokenAccountsByOwner RPC method to find USDC accounts
-    const response = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getTokenAccountsByOwner",
-        params: [
-          walletAddress,
-          { mint: USDC_MINT },
-          { encoding: "jsonParsed" },
-        ],
-      }),
-    });
+    if (network === "base") {
+      // EVM/Base: Use eth_call to read USDC balance
+      const balanceOfSelector = "0x70a08231"; // balanceOf(address)
+      const paddedAddress = walletAddress.slice(2).padStart(64, "0");
+      const callData = balanceOfSelector + paddedAddress;
 
-    const data = await response.json() as {
-      result?: {
-        value?: Array<{
-          account: {
-            data: {
-              parsed: {
-                info: {
-                  tokenAmount: {
-                    uiAmount: number;
+      const response = await fetch(config.baseRpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [
+            {
+              to: BASE_USDC_ADDRESS,
+              data: callData,
+            },
+            "latest",
+          ],
+        }),
+      });
+
+      const data = await response.json() as {
+        result?: string;
+        error?: { message: string };
+      };
+
+      if (data.error) {
+        return { balance: 0, error: data.error.message };
+      }
+
+      if (!data.result || data.result === "0x") {
+        return { balance: 0 };
+      }
+
+      // USDC has 6 decimals
+      const balanceWei = BigInt(data.result);
+      const balance = Number(balanceWei) / 1_000_000;
+      return { balance };
+    } else {
+      // Solana: Use getTokenAccountsByOwner RPC method
+      const response = await fetch(config.solanaRpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getTokenAccountsByOwner",
+          params: [
+            walletAddress,
+            { mint: SOLANA_USDC_MINT },
+            { encoding: "jsonParsed" },
+          ],
+        }),
+      });
+
+      const data = await response.json() as {
+        result?: {
+          value?: Array<{
+            account: {
+              data: {
+                parsed: {
+                  info: {
+                    tokenAmount: {
+                      uiAmount: number;
+                    };
                   };
                 };
               };
             };
-          };
-        }>;
+          }>;
+        };
+        error?: { message: string };
       };
-      error?: { message: string };
-    };
 
-    if (data.error) {
-      return { balance: 0, error: data.error.message };
+      if (data.error) {
+        return { balance: 0, error: data.error.message };
+      }
+
+      if (!data.result?.value || data.result.value.length === 0) {
+        return { balance: 0 }; // No USDC token account found
+      }
+
+      // Sum up all USDC token accounts (typically just one)
+      const totalBalance = data.result.value.reduce((sum, account) => {
+        const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
+        return sum + (amount || 0);
+      }, 0);
+
+      return { balance: totalBalance };
     }
-
-    if (!data.result?.value || data.result.value.length === 0) {
-      return { balance: 0 }; // No USDC token account found
-    }
-
-    // Sum up all USDC token accounts (typically just one)
-    const totalBalance = data.result.value.reduce((sum, account) => {
-      const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-      return sum + (amount || 0);
-    }, 0);
-
-    return { balance: totalBalance };
   } catch (error) {
     return {
       balance: 0,
@@ -134,22 +188,23 @@ async function getWalletUsdcBalance(
 /**
  * Displays wallet USDC balance and exits.
  */
-async function showWalletBalance(config: Config): Promise<void> {
+async function showWalletBalance(config: Config, network: Network): Promise<void> {
   console.log("\n" + "=".repeat(60));
   console.log("WALLET BALANCE");
   console.log("=".repeat(60));
 
-  const walletAddress = await getWalletAddressFromPrivateKey(
-    config.solanaPrivateKey
-  );
+  console.log(`Network: ${network.toUpperCase()}`);
+  const walletAddress = await getWalletAddress(config, network);
   console.log(`Wallet: ${truncateWalletAddress(walletAddress)}`);
   console.log(`Full address: ${walletAddress}`);
-  console.log(`RPC: ${config.solanaRpcUrl}`);
+  const rpcUrl = network === "base" ? config.baseRpcUrl : config.solanaRpcUrl;
+  console.log(`RPC: ${rpcUrl}`);
   console.log("");
 
   const { balance, error } = await getWalletUsdcBalance(
     walletAddress,
-    config.solanaRpcUrl
+    config,
+    network
   );
 
   if (error) {
@@ -171,11 +226,13 @@ async function confirmRealModeSpend(params: {
   walletAddress: string;
   trials: number;
   cycles: number;
+  network: Network;
 }): Promise<boolean> {
-  const { budgetUsdc, estimatedSpendUsdc, walletAddress, trials, cycles } =
+  const { budgetUsdc, estimatedSpendUsdc, walletAddress, trials, cycles, network } =
     params;
 
   console.log("\n⚠️  REAL MODE - This will spend actual USDC!\n");
+  console.log(`  Network:    ${network.toUpperCase()}`);
   console.log(`  Budget:     $${budgetUsdc.toFixed(2)}`);
   console.log(
     `  Est. spend: $${estimatedSpendUsdc.toFixed(2)} (${trials} trials × ${cycles} cycles × ~$${(estimatedSpendUsdc / (trials * cycles * 2)).toFixed(4)}/cycle)`
@@ -387,11 +444,12 @@ interface CliArgs {
   help?: boolean;
   balance?: boolean;
   agentMode?: 'no-zauth' | 'with-zauth';
+  network: Network;
 }
 
 function parseCliArgs(): CliArgs {
   const args = process.argv.slice(2);
-  const result: CliArgs = { mode: 'experiment' };
+  const result: CliArgs = { mode: 'experiment', network: 'base' };
 
   for (const arg of args) {
     if (arg === '--study') {
@@ -408,6 +466,14 @@ function parseCliArgs(): CliArgs {
       const mode = arg.split('=')[1];
       if (mode === 'no-zauth' || mode === 'with-zauth') {
         result.agentMode = mode;
+      }
+    } else if (arg.startsWith('--network=')) {
+      const network = arg.split('=')[1];
+      if (network === 'base' || network === 'solana') {
+        result.network = network;
+      } else {
+        console.error(`Invalid network: ${network}. Valid options: base, solana`);
+        process.exit(1);
       }
     } else if (arg === '--real') {
       result.real = true;
@@ -438,6 +504,7 @@ OPTIONS:
   --agent              Run single yield optimization agent (debugging mode)
   --balance            Show wallet USDC balance and exit
   --mode=MODE          Agent mode: no-zauth or with-zauth (default: with-zauth)
+  --network=NETWORK    Network: base or solana (default: base)
   --trials=N           Number of trials per condition (default: 10)
   --cycles=N           Number of optimization cycles per trial/agent (default: 50)
   --seed=N             Random seed for reproducibility (default: random)
@@ -446,9 +513,25 @@ OPTIONS:
   --yes, -y            Skip confirmation prompt for real mode (use in scripts)
   --help, -h           Show this help message
 
+NETWORKS:
+  base                 Use Base L2 (EVM) - more x402 endpoints available
+  solana               Use Solana mainnet
+
 EXAMPLES:
   # Run full scientific study (mock mode)
   npx tsx src/index.ts --study --trials=10 --cycles=50
+
+  # Run study on Base with real payments ($5 budget)
+  npx tsx src/index.ts --study --real --network=base --budget=5.00
+
+  # Run study on Solana with real payments
+  npx tsx src/index.ts --study --real --network=solana --budget=5.00
+
+  # Show wallet USDC balance on Base
+  npx tsx src/index.ts --balance --network=base
+
+  # Show wallet USDC balance on Solana
+  npx tsx src/index.ts --balance --network=solana
 
   # Run quick test study
   npx tsx src/index.ts --study --trials=2 --cycles=5
@@ -456,17 +539,8 @@ EXAMPLES:
   # Run single agent in with-zauth mode (debugging)
   npx tsx src/index.ts --agent --mode=with-zauth --cycles=5
 
-  # Run single agent in no-zauth mode
-  npx tsx src/index.ts --agent --mode=no-zauth --cycles=3
-
-  # Run study with real payments ($5 budget)
-  npx tsx src/index.ts --study --real --budget=5.00
-
   # Run study with reproducible seed
   npx tsx src/index.ts --study --seed=12345
-
-  # Show wallet USDC balance
-  npx tsx src/index.ts --balance
 
   # Run original experiment (legacy mode)
   npx tsx src/index.ts
@@ -487,12 +561,21 @@ async function main(): Promise<void> {
     // Handle --balance mode
     if (cliArgs.mode === 'balance') {
       const config = loadConfig();
-      if (!config.solanaPrivateKey || config.solanaPrivateKey === 'mock') {
-        console.error("\nError: SOLANA_PRIVATE_KEY is required for --balance.");
-        console.error("Set it in your .env file or environment.\n");
-        process.exit(1);
+      const network = cliArgs.network;
+      if (network === 'base') {
+        if (!config.evmPrivateKey || config.evmPrivateKey === 'mock') {
+          console.error("\nError: EVM_PRIVATE_KEY is required for --balance on Base.");
+          console.error("Set it in your .env file or environment.\n");
+          process.exit(1);
+        }
+      } else {
+        if (!config.solanaPrivateKey || config.solanaPrivateKey === 'mock') {
+          console.error("\nError: SOLANA_PRIVATE_KEY is required for --balance on Solana.");
+          console.error("Set it in your .env file or environment.\n");
+          process.exit(1);
+        }
       }
-      await showWalletBalance(config);
+      await showWalletBalance(config, network);
       process.exit(0);
     }
 
@@ -512,6 +595,8 @@ async function main(): Promise<void> {
 
       // Create verbose config
       const config: Config = {
+        evmPrivateKey: 'mock',
+        baseRpcUrl: 'mock',
         solanaPrivateKey: 'mock',
         solanaRpcUrl: 'mock',
         mode: 'mock',
@@ -643,10 +728,12 @@ async function main(): Promise<void> {
       const baseSeed = cliArgs.seed ?? Date.now();
       const mockMode = !cliArgs.real;
       const budgetUsdc = cliArgs.budget;
+      const network = cliArgs.network;
 
       console.log("\n" + "=".repeat(60));
       console.log("ZAUTH X402 SCIENTIFIC STUDY");
       console.log("=".repeat(60));
+      console.log(`Network: ${network.toUpperCase()}`);
       console.log(`Trials per condition: ${trials}`);
       console.log(`Cycles per trial: ${cycles}`);
       console.log(`Base seed: ${baseSeed}`);
@@ -661,6 +748,8 @@ async function main(): Promise<void> {
       if (mockMode) {
         // Use minimal mock config for study mode
         baseConfig = {
+          evmPrivateKey: 'mock',
+          baseRpcUrl: 'mock',
           solanaPrivateKey: 'mock',
           solanaRpcUrl: 'mock',
           mode: 'mock',
@@ -676,8 +765,8 @@ async function main(): Promise<void> {
       } else {
         // Load actual config for real mode
         baseConfig = loadConfig();
-        validateConfig(baseConfig);
-        validateRealModeConfig(baseConfig, budgetUsdc);
+        validateConfig(baseConfig, network);
+        validateRealModeConfig(baseConfig, budgetUsdc, network);
       }
 
       // Safety confirmation for real mode
@@ -686,12 +775,10 @@ async function main(): Promise<void> {
 
         if (!skipConfirmation) {
           // Get wallet address for display
-          const walletAddress = await getWalletAddressFromPrivateKey(
-            baseConfig.solanaPrivateKey
-          );
+          const walletAddress = await getWalletAddress(baseConfig, network);
 
           // Estimate spend: trials × cycles × 2 conditions × cost per cycle
-          const costPerCycle = estimateCycleCost();
+          const costPerCycle = estimateCycleCost(network);
           const estimatedSpend = trials * cycles * 2 * costPerCycle;
 
           const confirmed = await confirmRealModeSpend({
@@ -700,6 +787,7 @@ async function main(): Promise<void> {
             walletAddress,
             trials,
             cycles,
+            network,
           });
 
           if (!confirmed) {
@@ -719,6 +807,7 @@ async function main(): Promise<void> {
         outputDir: 'results',
         mockMode,
         budgetUsdc,
+        network,
       };
 
       console.log("Running scientific study...\n");

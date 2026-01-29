@@ -98,4 +98,5 @@ export interface StudyConfig {
   outputDir: string;
   mockMode: boolean;
   budgetUsdc?: number; // Optional budget limit for real mode
+  network?: "base" | "solana"; // Network for real mode (default: base)
 }

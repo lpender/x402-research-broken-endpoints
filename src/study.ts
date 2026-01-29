@@ -6,7 +6,7 @@ import type {
   CycleMetrics,
   OptimizationResult,
 } from "./types.js";
-import type { Config } from "./config.js";
+import type { Config, Network } from "./config.js";
 import { YieldOptimizerAgent } from "./yield-agent.js";
 import { createMockX402Client, createRealX402Client, type X402Client } from "./x402-client.js";
 import { createMockZauthClient } from "./zauth-client.js";
@@ -102,7 +102,10 @@ export async function runScientificStudy(
   // Reset state for new study
   isBudgetExhausted = false;
 
+  const network: Network = config.network ?? "base";
+
   console.log("\n=== Starting Scientific Study ===");
+  console.log(`Network: ${network.toUpperCase()}`);
   console.log(`Trials per condition: ${config.trialsPerCondition}`);
   console.log(`Cycles per trial: ${config.cyclesPerTrial}`);
   console.log(`Base seed: ${config.baseSeed}`);
@@ -123,8 +126,8 @@ export async function runScientificStudy(
   // Create x402 client once (real client initialized once, reused across trials)
   let x402Client: X402Client | null = null;
   if (!config.mockMode) {
-    console.log("Initializing real x402 client...");
-    x402Client = await createRealX402Client(baseConfig);
+    console.log(`Initializing real x402 client for ${network}...`);
+    x402Client = await createRealX402Client(baseConfig, network);
     console.log("Real x402 client ready.\n");
   }
 
