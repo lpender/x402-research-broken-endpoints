@@ -34,6 +34,7 @@ export class YieldOptimizerAgent {
   private zauthCost: number = 0;
   private queriesAttempted: number = 0;
   private queriesFailed: number = 0;
+  private lastFilteringStats?: any; // Store filtering stats from last discovery
 
   constructor(
     mode: AgentMode,
@@ -71,6 +72,61 @@ export class YieldOptimizerAgent {
   }
 
   /**
+   * Get endpoints with filtering statistics (for Stage 1 reporting)
+   */
+  private async getEndpointsWithStats(): Promise<{ endpoints: Endpoint[]; stats: any }> {
+    if (this.endpointSource === "real") {
+      if (!this.bazaarClient) {
+        throw new Error("BazaarDiscoveryClient required for real mode");
+      }
+
+      // Query Bazaar API
+      const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
+      const response = await this.bazaarClient.discoverResources({
+        type: 'http',
+        limit: 100,
+        network: this.network === 'base' ? 'eip155:8453' : undefined,
+        verbose: this.config.verbose
+      });
+
+      // Get endpoints and stats
+      const { endpoints: realEndpoints, stats } = mapBazaarToRealEndpoints(
+        response.items,
+        this.network,
+        this.config.verbose
+      );
+
+      // Convert to Endpoint format
+      const { toEndpoint } = await import('./real-endpoints.js');
+      const endpoints = realEndpoints.map(toEndpoint);
+
+      this.lastFilteringStats = stats;
+      return { endpoints, stats };
+    }
+
+    // Mock mode - no stats
+    return {
+      endpoints: MOCK_ENDPOINTS,
+      stats: {
+        bazaarTotal: 0,
+        afterNetworkFilter: 0,
+        afterCategoryFilter: 0,
+        finalEndpoints: MOCK_ENDPOINTS.length,
+        filteredOutByNetwork: 0,
+        filteredOutByCategory: 0,
+        categoryBreakdown: { pool: 0, whale: 0, sentiment: 0, unclassified: 0 }
+      }
+    };
+  }
+
+  /**
+   * Get filtering statistics from last discovery
+   */
+  getFilteringStats(): any {
+    return this.lastFilteringStats;
+  }
+
+  /**
    * Stage 1: Discovery & 402 Prepayment Analysis
    *
    * Discovers endpoints from Bazaar and tests which ones require 402 prepayment.
@@ -79,8 +135,8 @@ export class YieldOptimizerAgent {
   async runDiscoveryStage(): Promise<DiscoveryStageResult> {
     console.log("\n[Discovery] Getting endpoints from Bazaar...");
 
-    // Get endpoints from configured source
-    const endpoints = await this.getEndpoints();
+    // Get endpoints with filtering statistics
+    const { endpoints } = await this.getEndpointsWithStats();
 
     console.log(`[Discovery] Testing ${endpoints.length} endpoints for 402 prepayment...\n`);
 

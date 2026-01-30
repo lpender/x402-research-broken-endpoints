@@ -24,15 +24,46 @@ const CATEGORY_KEYWORDS = {
   sentiment: ['sentiment', 'analysis', 'price', 'signal', 'market', 'trend', 'indicator']
 };
 
+export interface FilteringStats {
+  bazaarTotal: number;
+  afterNetworkFilter: number;
+  afterCategoryFilter: number;
+  finalEndpoints: number;
+  filteredOutByNetwork: number;
+  filteredOutByCategory: number;
+  categoryBreakdown: {
+    pool: number;
+    whale: number;
+    sentiment: number;
+    unclassified: number;
+  };
+}
+
 /**
- * Transform Bazaar resources to RealEndpoint array
+ * Transform Bazaar resources to RealEndpoint array with filtering statistics
  */
 export function mapBazaarToRealEndpoints(
   resources: BazaarResource[],
   network: 'base' | 'solana',
   verbose?: boolean
-): RealEndpoint[] {
+): { endpoints: RealEndpoint[]; stats: FilteringStats } {
   const endpoints: RealEndpoint[] = [];
+
+  // Initialize statistics
+  const stats: FilteringStats = {
+    bazaarTotal: resources.length,
+    afterNetworkFilter: 0,
+    afterCategoryFilter: 0,
+    finalEndpoints: 0,
+    filteredOutByNetwork: 0,
+    filteredOutByCategory: 0,
+    categoryBreakdown: {
+      pool: 0,
+      whale: 0,
+      sentiment: 0,
+      unclassified: 0
+    }
+  };
 
   if (verbose) {
     console.log(`\n[Bazaar Debug] Mapping ${resources.length} resources for network: ${network}\n`);
@@ -46,18 +77,24 @@ export function mapBazaarToRealEndpoints(
 
     // Filter by network
     if (!matchesNetwork(resource, network, verbose)) {
+      stats.filteredOutByNetwork++;
       continue;
     }
+    stats.afterNetworkFilter++;
 
     // Classify category
     const category = classifyCategory(resource, verbose);
     if (!category) {
+      stats.categoryBreakdown.unclassified++;
+      stats.filteredOutByCategory++;
       if (!verbose) {
         const url = resource.accepts[0]?.resource || '(unknown)';
         console.log(`[Bazaar] Skipping unclassified endpoint: ${url}`);
       }
       continue;
     }
+    stats.afterCategoryFilter++;
+    stats.categoryBreakdown[category]++;
 
     // Extract URL and pricing from first accepts entry
     const firstAccept = resource.accepts[0];
@@ -80,23 +117,23 @@ export function mapBazaarToRealEndpoints(
     }
   }
 
+  stats.finalEndpoints = endpoints.length;
+
   if (verbose) {
     console.log(`[Bazaar Debug] Mapping complete:`);
     console.log(`  Total input: ${resources.length}`);
-    console.log(`  Successfully mapped: ${endpoints.length}`);
-    console.log(`  Filtered out: ${resources.length - endpoints.length}`);
-
-    // Show categories found
-    const categories = [...new Set(endpoints.map(e => e.category))];
-    if (categories.length > 0) {
-      console.log(`  Categories found: ${categories.join(', ')}`);
-    }
+    console.log(`  After network filter: ${stats.afterNetworkFilter}`);
+    console.log(`  After category filter: ${stats.afterCategoryFilter}`);
+    console.log(`  Final endpoints: ${stats.finalEndpoints}`);
+    console.log(`  Filtered out by network: ${stats.filteredOutByNetwork}`);
+    console.log(`  Filtered out by category: ${stats.filteredOutByCategory}`);
+    console.log(`  Category breakdown:`, stats.categoryBreakdown);
     console.log('');
   } else {
     console.log(`[Bazaar] Mapped ${endpoints.length}/${resources.length} endpoints for ${network}`);
   }
 
-  return endpoints;
+  return { endpoints, stats };
 }
 
 /**

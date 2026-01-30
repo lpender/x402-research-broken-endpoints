@@ -32,9 +32,18 @@ export interface BazaarResponse {
   offset?: number; // Optional - may not be returned by API
 }
 
+export interface BazaarQueryParams {
+  url: string;
+  type: string;
+  network?: string;
+  limit: number;
+  offset: number;
+}
+
 interface CachedResponse {
   data: BazaarResponse;
   timestamp: number;
+  queryParams: BazaarQueryParams;
 }
 
 export interface DiscoveryOptions {
@@ -47,6 +56,7 @@ export interface DiscoveryOptions {
 
 export class BazaarDiscoveryClient {
   private cache = new Map<string, CachedResponse>();
+  private lastQueryParams?: BazaarQueryParams;
 
   constructor(
     private baseUrl: string,
@@ -66,11 +76,22 @@ export class BazaarDiscoveryClient {
       if (options.verbose) {
         this.logResponseStructure(cached.data, 'cached');
       }
+      this.lastQueryParams = cached.queryParams;
       return cached.data;
     }
 
     const url = this.buildUrl(options);
     console.log(`[Bazaar] Querying: ${url}`);
+
+    // Build query params object for tracking
+    const queryParams: BazaarQueryParams = {
+      url,
+      type: options.type || 'http',
+      network: options.network,
+      limit: options.limit || 100,
+      offset: options.offset || 0
+    };
+    this.lastQueryParams = queryParams;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -89,14 +110,22 @@ export class BazaarDiscoveryClient {
       this.logResponseStructure(data, 'fresh');
     }
 
-    // Cache the result
+    // Cache the result with query params
     this.cache.set(cacheKey, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      queryParams
     });
 
     console.log(`[Bazaar] Discovered ${data.items.length} resources`);
     return data;
+  }
+
+  /**
+   * Get query parameters from last discoverResources() call
+   */
+  getLastQueryParams(): BazaarQueryParams | undefined {
+    return this.lastQueryParams;
   }
 
   /**

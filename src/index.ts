@@ -442,12 +442,50 @@ async function main(): Promise<void> {
           bazaarClient
         );
 
+        // Track duration
+        const startTime = Date.now();
+
         // Run discovery and print report
         const result = await agent.runDiscoveryStage();
-        const { printDiscoveryReport, exportDiscoveryJson } = await import('./discovery-report.js');
+        const { printDiscoveryReport } = await import('./discovery-report.js');
         printDiscoveryReport(result, network);
-        const jsonPath = await exportDiscoveryJson(result, network);
-        console.log(`\nResults exported to: ${jsonPath}\n`);
+
+        // Calculate duration
+        const durationSeconds = (Date.now() - startTime) / 1000;
+
+        // Get query parameters and filtering stats for comprehensive documentation
+        const queryParams = bazaarClient.getLastQueryParams();
+        const filteringStats = agent.getFilteringStats();
+
+        // Validate we have the required metadata
+        if (!queryParams) {
+          console.error('\n⚠️  Warning: Could not capture query parameters');
+          return;
+        }
+
+        if (!filteringStats) {
+          console.error('\n⚠️  Warning: Could not capture filtering statistics');
+          return;
+        }
+
+        // Export to organized folder structure
+        const { exportStage1Results } = await import('./stage1-output.js');
+        const networkId = network === 'base' ? 'eip155:8453' : 'solana';
+        const paths = await exportStage1Results(
+          result,
+          network,
+          networkId,
+          queryParams,
+          filteringStats,
+          durationSeconds
+        );
+
+        console.log(`\n✅ Stage 1 complete!`);
+        console.log(`📁 Results folder: ${paths.folderPath}\n`);
+        console.log(`Files created:`);
+        console.log(`  - ${paths.readmePath}`);
+        console.log(`  - ${paths.discoveryJsonPath}`);
+        console.log(`  - ${paths.endpointsJsonPath}\n`);
 
         return;
       }

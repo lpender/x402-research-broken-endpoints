@@ -123,6 +123,7 @@ async function getBazaarEndpoints(bazaarClient: any, network: Network, verbose?:
     verbose
   });
 
-  // Transform to RealEndpoint format
-  return mapBazaarToRealEndpoints(response.items, network, verbose);
+  // Transform to RealEndpoint format (extract endpoints only, discard stats)
+  const { endpoints } = mapBazaarToRealEndpoints(response.items, network, verbose);
+  return endpoints;
 }
