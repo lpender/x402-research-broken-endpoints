@@ -573,3 +573,54 @@ Results:
 Files: src/index.ts, Taskfile.yml, progress.txt
 Cost: $0 (Stage 1 makes no payments, just HTTP GET requests)
 Next: Stage 2 implementation (will require budget for x402 payments)
+
+--- Stage 1: Enhanced Output Organization & Documentation ---
+Task: Implement comprehensive folder structure and README generation for Stage 1
+PRD reference: Stage 1 output organization enhancement
+Approach: Create dedicated folders with comprehensive documentation for each discovery run
+Key implementation:
+- Created src/stage1-output.ts: Module for output organization and README generation
+  - createStage1OutputFolder(): creates timestamped folders (stage1_{network}_{timestamp}/)
+  - generateStage1ReadMe(): 316-line comprehensive methodology document
+  - exportStage1Results(): writes README.md + discovery.json + endpoints.json
+- Modified src/bazaar-client.ts: Track and expose query parameters
+  - Added BazaarQueryParams interface (url, type, network, limit, offset)
+  - Store queryParams in cache alongside data
+  - Added getLastQueryParams() method
+- Modified src/bazaar-mapper.ts: Return filtering statistics
+  - Added FilteringStats interface (bazaarTotal, afterNetworkFilter, afterCategoryFilter, finalEndpoints, filteredOutByNetwork, filteredOutByCategory, categoryBreakdown)
+  - Modified mapBazaarToRealEndpoints() to return { endpoints, stats }
+- Modified src/yield-agent.ts: Expose filtering stats
+  - Added getEndpointsWithStats() method (calls mapper directly)
+  - Store lastFilteringStats in agent
+  - Added getFilteringStats() method
+- Modified src/real-endpoints.ts: Handle new mapper return type
+- Modified src/index.ts: Capture metadata and export to organized folder
+  - Track discovery duration
+  - Capture queryParams from Bazaar client
+  - Capture filteringStats from agent
+  - Export to stage1 folder structure
+README.md content (316 lines):
+1. Executive Summary: endpoints found, 402 percentage, failures, zero payments
+2. Section 1 - What: DeFi yield optimization via AI agents
+3. Section 2 - Why: x402 adoption blocked by reliability concerns
+4. Section 3 - How Discovery Works:
+   - 3.1: Query Bazaar API (exact query params shown)
+   - 3.2: Three-level filtering (network → category → price)
+   - 3.3: Batch HTTP testing (402 status, concurrency, timeouts)
+   - 3.4: Statistical calculations
+5. Section 4 - Current Problems: broken endpoints, inconsistent 402, no signals, performance
+6. Section 5 - Experimental Method: goals, constraints, next stage preview
+7. Results Summary: endpoint distribution, key findings, reproducibility info
+8. Technical Details: timestamp, network ID, API version, source files
+Testing:
+- Base network: 30 endpoints discovered, 70% require 402, 0% failures, 4.9s duration
+- Solana network: 16 endpoints discovered, 75% require 402, 0% failures, 1.6s duration
+- README.md comprehensive (316 lines, 9.5KB)
+- discovery.json contains: stage, timestamp, network, networkId, query, durationSeconds, bazaarQuery, filtering, results
+- endpoints.json contains: stage, timestamp, network, total, endpoints array (url, requires402, status, headers, error)
+- All files organized in stage1_{network}_{timestamp}/ folders
+- TypeScript compilation passes (npx tsc --noEmit)
+Files: src/stage1-output.ts (NEW), src/bazaar-client.ts, src/bazaar-mapper.ts, src/yield-agent.ts, src/real-endpoints.ts, src/index.ts, progress.txt
+Results folders: results/stage1_base_2026-01-30T16-05-19/, results/stage1_solana_2026-01-30T16-05-36/
+Next: Use comprehensive Stage 1 docs as foundation for Stage 2 implementation
