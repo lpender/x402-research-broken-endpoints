@@ -823,3 +823,42 @@ Impact: endpoints.json now contains full Bazaar metadata for endpoint discovery
 Files: src/types.ts, src/bazaar-mapper.ts, src/config.ts, src/real-endpoints.ts, src/yield-agent.ts, src/stage1-output.ts
 Next: Run Stage 1 to verify enriched endpoints.json output
 
+
+2026-01-30 15:30 - Add 402 response price parsing and comparison
+Task: Parse payment-required headers to extract actual endpoint prices
+PRD ref: Stage 1 pricing analysis (compare Bazaar advertised vs actual 402 prices)
+Problem: Bazaar metadata includes price, but no verification against actual 402 responses
+- Endpoint may advertise $0.01 in Bazaar but request $0.002 in payment-required header
+- Need to compare Bazaar metadata vs actual endpoint requirements
+Implementation:
+- Created src/payment-parser.ts with parsing utilities:
+  - parsePaymentRequiredHeader(): Decode Base64, parse JSON, validate structure
+  - findPrimaryUsdcPrice(): Find first USDC option from accepts array
+  - extractUsdcPrice(): Convert atomic units to human-readable (÷1,000,000)
+  - summarizePaymentOptions(): Aggregate all payment networks/prices
+  - formatPrice(), formatNetwork(): Display formatting helpers
+- src/types.ts: Added PaymentRequirement, PaymentRequiredHeader interfaces
+  - Extended PrepaymentTestResult with requested402Price, paymentOptions, parseError
+- src/prepayment-tester.ts: Integrated parser after 402 detection
+  - Parses payment-required header if present
+  - Extracts USDC price and payment options
+  - Graceful error handling (missing header, invalid Base64, parse errors)
+- src/stage1-output.ts: Enhanced JSON exports with pricing fields
+  - endpoints.json: Added requested402Price, paymentOptions, priceDiscrepancy
+  - discovery.json: Added pricing402Response statistics section
+  - README.md: Added Problem 5 - Price Accuracy in Bazaar Metadata
+- src/discovery-report.ts: Console output shows pricing analysis
+  - 402 Response Pricing Analysis summary (count, range, average)
+  - Per-endpoint display shows both Bazaar and actual 402 prices
+  - Flags price discrepancies where |bazaar - actual| > 0.0001
+Verification: Tested with live endpoint (x402.silverbackdefi.app/api/v1/defi-yield)
+- Successfully parsed payment-required header
+- Extracted price: $0.002 (2000 atomic units ÷ 1,000,000)
+- Detected discrepancy: Bazaar price $0.01 vs actual $0.002
+Impact: Enables price accuracy analysis
+- Agents can compare advertised vs actual costs
+- Identifies endpoints with stale/incorrect Bazaar metadata
+- Improves cost estimation for budget planning
+Files: src/payment-parser.ts (new), src/types.ts, src/prepayment-tester.ts, 
+       src/stage1-output.ts, src/discovery-report.ts
+Next: Run Stage 1 with updated code to verify pricing analysis in output
