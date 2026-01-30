@@ -410,3 +410,20 @@ Taskfile usage:
 - task study:bazaar -- --trials=10 --cycles=50 - Custom params
 - task study:bazaar:real -- --budget=0.50 - Real mode test
 Next: Manual E2E test with --use-bazaar flag on real Bazaar API
+
+--- Critical Bug Fix: Real Zauth in Real Mode ---
+Task: Fixed study.ts to use real Zauth client in real mode (not mock)
+Bug discovered: User ran real mode study, got 100% endpoint failures
+Root cause: study.ts line 301 always called createMockZauthClient(), even in real mode
+Impact: Real mode studies were using random Zauth reliability scores (not actual endpoint health)
+Fix:
+- Added createRealZauthClient() factory in zauth-client.ts
+- Updated runScientificStudy() to create shared real Zauth client when !mockMode
+- Updated runTrial() to accept sharedZauthClient param, use it if provided
+- Pattern now matches x402Client (shared real client in real mode, mock in mock mode)
+Result:
+- Mock mode: unchanged (uses mock Zauth with seeded RNG for reproducibility)
+- Real mode: NOW uses real Zauth API to check endpoint health before queries
+- Zauth can now properly filter broken endpoints based on actual uptime data
+Files: src/zauth-client.ts, src/study.ts, progress.txt
+Testing: Mock mode test passes, TypeScript compiles, ready for real validation
