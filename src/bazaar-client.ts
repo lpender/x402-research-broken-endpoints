@@ -62,6 +62,9 @@ export class BazaarDiscoveryClient {
 
     if (cached && this.isCacheValid(cached)) {
       console.log('[Bazaar] Cache hit');
+      if (options.verbose) {
+        this.logResponseStructure(cached.data, 'cached');
+      }
       return cached.data;
     }
 
@@ -83,26 +86,7 @@ export class BazaarDiscoveryClient {
 
       // Debug logging if verbose enabled
       if (options.verbose) {
-        console.log('\n[Bazaar Debug] Raw API response structure:');
-        console.log(`  Total items: ${data.total}`);
-        console.log(`  Items returned: ${data.items.length}`);
-        console.log(`  Limit: ${data.limit}, Offset: ${data.offset}`);
-
-        // Show sample of first 3 items
-        const sampleSize = Math.min(3, data.items.length);
-        if (sampleSize > 0) {
-          console.log(`  Sample of first ${sampleSize} item(s):`);
-          for (let i = 0; i < sampleSize; i++) {
-            const item = data.items[i];
-            console.log(`    Item ${i + 1}:`);
-            console.log(`      ID: ${item.id}`);
-            console.log(`      Type: ${item.type}`);
-            console.log(`      URL: ${item.url}`);
-            console.log(`      Metadata: ${JSON.stringify(item.metadata || {}, null, 2).split('\n').join('\n      ')}`);
-            console.log(`      Accepts: ${JSON.stringify(item.accepts || [], null, 2).split('\n').join('\n      ')}`);
-          }
-        }
-        console.log('');
+        this.logResponseStructure(data, 'fresh');
       }
 
       // Cache the result
@@ -161,5 +145,31 @@ export class BazaarDiscoveryClient {
   clearCache(): void {
     this.cache.clear();
     console.log('[Bazaar] Cache cleared');
+  }
+
+  /**
+   * Log response structure for debugging
+   */
+  private logResponseStructure(data: BazaarResponse, source: 'fresh' | 'cached'): void {
+    console.log(`\n[Bazaar Debug] Raw API response structure (${source}):`);
+    console.log(`  Total items: ${data.total}`);
+    console.log(`  Items returned: ${data.items.length}`);
+    console.log(`  Limit: ${data.limit}, Offset: ${data.offset}`);
+
+    // Show sample of first 3 items
+    const sampleSize = Math.min(3, data.items.length);
+    if (sampleSize > 0) {
+      console.log(`  Sample of first ${sampleSize} item(s):`);
+      for (let i = 0; i < sampleSize; i++) {
+        const item = data.items[i];
+        console.log(`    Item ${i + 1}:`);
+        console.log(`      ID: ${item.id}`);
+        console.log(`      Type: ${item.type}`);
+        console.log(`      URL: ${item.url}`);
+        console.log(`      Metadata: ${JSON.stringify(item.metadata || {}, null, 2).split('\n').join('\n      ')}`);
+        console.log(`      Accepts: ${JSON.stringify(item.accepts || [], null, 2).split('\n').join('\n      ')}`);
+      }
+    }
+    console.log('');
   }
 }

@@ -473,3 +473,9 @@ Output format: Structured debug logs show API response â†’ filtering decisions â
 Impact: Zero performance cost when disabled, actionable debugging info when enabled
 Files: src/bazaar-client.ts, src/bazaar-mapper.ts, src/real-endpoints.ts, src/yield-agent.ts, Taskfile.yml, progress.txt
 Next: User can run "task study:stats:verbose" to debug Bazaar discovery issues
+
+Task: Enhanced Bazaar debug logging to show cached responses
+Issue: Cache hits didn't show raw API response structure, making it hard to debug malformed Bazaar data
+Fix: Extracted logResponseStructure() helper method, called for both cache hits and fresh fetches
+Impact: Verbose mode now shows full response structure regardless of cache status, revealing malformed resources
+Files: src/bazaar-client.ts, progress.txt
