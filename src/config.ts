@@ -25,6 +25,11 @@ export interface Config {
   zauthDirectoryUrl: string;
   zauthCheckUrl: string;
 
+  // Bazaar
+  useBazaar: boolean;
+  bazaarUrl: string;
+  bazaarCacheTtl: number;
+
   // Output
   outputDir: string;
   verbose: boolean;
@@ -118,6 +123,12 @@ function parseArgs(): Partial<Config> {
       i++;
     } else if (arg === "--verbose" || arg === "-v") {
       args.verbose = true;
+    } else if (arg === "--use-bazaar") {
+      args.useBazaar = true;
+    } else if (arg.startsWith("--bazaar-url=")) {
+      args.bazaarUrl = arg.split("=")[1];
+    } else if (arg.startsWith("--bazaar-ttl=")) {
+      args.bazaarCacheTtl = parseInt(arg.split("=")[1], 10) * 1000; // Convert seconds to ms
     }
   }
 
@@ -142,6 +153,11 @@ export function loadConfig(): Config {
     zauthCheckUrl:
       process.env.ZAUTH_CHECK_URL ||
       "https://back.zauthx402.com/api/verification/check",
+    useBazaar: process.env.USE_BAZAAR === "true",
+    bazaarUrl:
+      process.env.BAZAAR_URL ||
+      "https://api.cdp.coinbase.com/platform/v2/x402",
+    bazaarCacheTtl: parseInt(process.env.BAZAAR_CACHE_TTL || "3600", 10) * 1000, // Convert to ms
     outputDir: process.env.OUTPUT_DIR || "./results",
     verbose: process.env.VERBOSE === "true",
   };

@@ -606,6 +606,9 @@ async function main(): Promise<void> {
         mockFailureRate: 0.3,
         zauthDirectoryUrl: 'mock',
         zauthCheckUrl: 'mock',
+        useBazaar: false,
+        bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
+        bazaarCacheTtl: 3600000,
         outputDir: 'results',
         verbose: true, // Enable verbose output
       };
@@ -633,7 +636,9 @@ async function main(): Promise<void> {
         config,
         x402Client,
         agentMode === 'with-zauth' ? zauthClient : undefined,
-        "mock" // Agent debug mode always uses mock endpoints
+        "mock", // Agent debug mode always uses mock endpoints
+        "base", // Default network
+        undefined // No Bazaar in debug mode
       );
 
       // Run optimization cycles
@@ -759,6 +764,9 @@ async function main(): Promise<void> {
           mockFailureRate: 0.3,
           zauthDirectoryUrl: 'mock',
           zauthCheckUrl: 'mock',
+          useBazaar: false,
+          bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
+          bazaarCacheTtl: 3600000,
           outputDir: 'results',
           verbose: false,
         };
@@ -798,6 +806,17 @@ async function main(): Promise<void> {
         }
       }
 
+      // Initialize Bazaar client if enabled
+      let bazaarClient: any = undefined;
+      if (baseConfig.useBazaar) {
+        const { BazaarDiscoveryClient } = await import('./bazaar-client.js');
+        bazaarClient = new BazaarDiscoveryClient(
+          baseConfig.bazaarUrl,
+          baseConfig.bazaarCacheTtl
+        );
+        console.log(`[Bazaar] Discovery enabled (cache TTL: ${baseConfig.bazaarCacheTtl / 1000}s)\n`);
+      }
+
       // Run the scientific study
       const studyConfig = {
         trialsPerCondition: trials,
@@ -808,10 +827,11 @@ async function main(): Promise<void> {
         mockMode,
         budgetUsdc,
         network,
+        bazaarClient,
       };
 
       console.log("Running scientific study...\n");
-      const results = await runScientificStudy(studyConfig, baseConfig);
+      const results = await runScientificStudy(studyConfig, baseConfig, bazaarClient);
 
       // Print results to console
       console.log("\n");

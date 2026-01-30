@@ -13,9 +13,11 @@ export interface RealEndpoint {
   url: string;
   name: string;
   category: EndpointCategory;
-  priceUsdc: number;
-  x402Enabled: boolean;
-  network: Network;
+  price: number; // USDC per request
+  priceUsdc?: number; // Alias for backward compatibility
+  x402Enabled?: boolean; // Optional for backward compatibility
+  network?: Network; // Optional for Bazaar responses
+  metadata?: any; // Optional Bazaar metadata
 }
 
 /**
@@ -34,6 +36,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://x402-api.heyelsa.ai/api/get_yield_suggestions",
     name: "Elsa Yield Suggestions",
     category: "pool",
+    price: 0.02,
     priceUsdc: 0.02,
     x402Enabled: true,
     network: "base",
@@ -42,6 +45,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://x402-api.heyelsa.ai/api/analyze_wallet",
     name: "Elsa Wallet Analysis",
     category: "whale",
+    price: 0.01,
     priceUsdc: 0.01,
     x402Enabled: true,
     network: "base",
@@ -50,6 +54,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://x402-api.heyelsa.ai/api/get_token_price",
     name: "Elsa Token Price",
     category: "sentiment",
+    price: 0.002,
     priceUsdc: 0.002,
     x402Enabled: true,
     network: "base",
@@ -64,6 +69,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://api.defi-data.io/v1/pools",
     name: "DeFi Data Pool Analytics",
     category: "pool",
+    price: 0.01,
     priceUsdc: 0.01,
     x402Enabled: true,
     network: "solana",
@@ -74,6 +80,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://api.whale-tracker.io/v1/movements",
     name: "Whale Movement Tracker",
     category: "whale",
+    price: 0.02,
     priceUsdc: 0.02,
     x402Enabled: true,
     network: "solana",
@@ -84,6 +91,7 @@ export const REAL_ENDPOINTS: RealEndpoint[] = [
     url: "https://api.crypto-sentiment.io/v1/analysis",
     name: "Crypto Sentiment Analysis",
     category: "sentiment",
+    price: 0.015,
     priceUsdc: 0.015,
     x402Enabled: true,
     network: "solana",
@@ -152,20 +160,58 @@ export function toEndpoint(real: RealEndpoint): {
     url: real.url,
     name: real.name,
     category: real.category,
-    priceUsdc: real.priceUsdc,
+    priceUsdc: real.priceUsdc ?? real.price,
   };
 }
 
 /**
  * Get all real endpoints as Endpoint type for a specific network (for agent compatibility)
+ * Supports Bazaar discovery when enabled.
  */
-export function getRealEndpointsAsEndpoints(
-  network: Network = "base"
-): Array<{
+export async function getRealEndpointsAsEndpoints(
+  network: Network = "base",
+  options?: {
+    useBazaar?: boolean;
+    bazaarClient?: any; // BazaarDiscoveryClient
+  }
+): Promise<Array<{
   url: string;
   name: string;
   category: string;
   priceUsdc: number;
-}> {
+}>> {
+  // Try Bazaar discovery if enabled
+  if (options?.useBazaar && options?.bazaarClient) {
+    const bazaarEndpoints = await getBazaarEndpoints(options.bazaarClient, network);
+    if (bazaarEndpoints.length > 0) {
+      console.log(`[Bazaar] Using ${bazaarEndpoints.length} discovered endpoints`);
+      return bazaarEndpoints.map(toEndpoint);
+    }
+    console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
+  }
+
+  // Fallback to static registry
   return getEnabledEndpoints(network).map(toEndpoint);
+}
+
+/**
+ * Query Bazaar and transform to RealEndpoint array
+ */
+async function getBazaarEndpoints(bazaarClient: any, network: Network): Promise<RealEndpoint[]> {
+  try {
+    const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
+
+    // Query Bazaar API
+    const response = await bazaarClient.discoverResources({
+      type: 'http',
+      limit: 100,
+      network: network === 'base' ? 'eip155:8453' : undefined
+    });
+
+    // Transform to RealEndpoint format
+    return mapBazaarToRealEndpoints(response.items, network);
+  } catch (error) {
+    console.warn(`[Bazaar] Failed to fetch endpoints: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
 }

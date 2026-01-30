@@ -1,9 +1,9 @@
-Sprint 3 description:
+Now that the plan is approved, the task is NOT to complete the plan, but to
+generate documents for a
+[Ralph](https://www.aihero.dev/getting-started-with-ralph) instance to complete.
 
-Now that we've got the infrastructure in place, we need to move to using 'real'
-money in Base Defi yield optimizer.  The private keys for EVM and Solana are in
-the .env file. We need to run the test with real endpoints and see the
-difference.
+Again, do NOT begin or complete the plan. Write the PRD documents described
+below only.
 
 Instructions:
 
@@ -55,5 +55,3 @@ NEXT=$(ls sprints/ | grep -E '^[0-9]+$' | sort -n | tail -1 | awk '{print $1+1}'
 mkdir -p sprints/${NEXT:-1}
 mv PRD.md prd-items.json sprints/${NEXT:-1}/
 ```
-
-Note: Don't execute the PRD tasks automatically—just create the planning documents.

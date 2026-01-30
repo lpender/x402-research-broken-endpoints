@@ -97,7 +97,8 @@ let isBudgetExhausted = false;
 
 export async function runScientificStudy(
   config: StudyConfig,
-  baseConfig: Config
+  baseConfig: Config,
+  bazaarClient?: any
 ): Promise<StudyResults> {
   // Reset state for new study
   isBudgetExhausted = false;
@@ -167,7 +168,9 @@ export async function runScientificStudy(
         baseConfig,
         config.mockMode,
         x402Client,
-        spendTracker
+        spendTracker,
+        network,
+        bazaarClient
       );
       noZauthTrials.push(noZauthResult);
       progress.completedTrials++;
@@ -183,7 +186,9 @@ export async function runScientificStudy(
         baseConfig,
         config.mockMode,
         x402Client,
-        spendTracker
+        spendTracker,
+        network,
+        bazaarClient
       );
       withZauthTrials.push(withZauthResult);
       progress.completedTrials++;
@@ -284,7 +289,9 @@ async function runTrial(
   config: Config,
   mockMode: boolean,
   sharedX402Client: X402Client | null = null,
-  spendTracker: SpendTracker | null = null
+  spendTracker: SpendTracker | null = null,
+  network: Network = "base",
+  bazaarClient?: any
 ): Promise<TrialResults> {
   const rng = new SeededRandom(seed);
   const metrics: CycleMetrics[] = [];
@@ -295,7 +302,15 @@ async function runTrial(
 
   // Determine endpoint source based on mock mode
   const endpointSource = mockMode ? "mock" : "real";
-  const agent = new YieldOptimizerAgent(mode, config, x402Client, zauthClient, endpointSource);
+  const agent = new YieldOptimizerAgent(
+    mode,
+    config,
+    x402Client,
+    zauthClient,
+    endpointSource,
+    network,
+    bazaarClient
+  );
 
   // Estimate cost per cycle (rough estimate for budget check)
   const estimatedCostPerCycle = 0.03; // ~$0.03 per cycle (3 queries @ ~$0.01)

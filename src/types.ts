@@ -99,4 +99,5 @@ export interface StudyConfig {
   mockMode: boolean;
   budgetUsdc?: number; // Optional budget limit for real mode
   network?: "base" | "solana"; // Network for real mode (default: base)
+  bazaarClient?: any; // BazaarDiscoveryClient instance (optional)
 }
