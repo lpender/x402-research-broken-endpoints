@@ -154,7 +154,7 @@ export class BazaarDiscoveryClient {
     const delayMs = 1000; // 1 second delay between requests to avoid rate limiting
     const maxPages = 200; // Safety limit to prevent infinite loops
     let consecutiveErrors = 0;
-    const maxConsecutiveErrors = 3;
+    const maxConsecutiveErrors = 11; // Max retry with exponential backoff up to 2048s (2^11)
 
     console.log('[Bazaar] Fetching all pages...');
 
