@@ -75,6 +75,12 @@ tasks:
     cmds:
       - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=25 --cycles=20 --budget=100.00 --yes {{.CLI_ARGS}}
 
+  # Stage commands
+  stage:1:
+    desc: Run Stage 1 - Discovery & 402 Prepayment Analysis
+    cmds:
+      - npx tsx src/index.ts --agent --stage=1 {{.CLI_ARGS}}
+
   # Debug commands
   agent:
     desc: Run single agent in debug mode

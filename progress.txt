@@ -549,3 +549,27 @@ Results:
 - TypeScript compiles without errors (npx tsc --noEmit passes)
 Next: Stage 2 (query with payment, validate response quality)
 Cost: Stage 1 = $0 (HTTP only), Stage 2+ will require budget
+
+--- Simplify Stage 1: Remove Mock Mode & Budget Requirements ---
+Task: Removed unnecessary complexity from Stage 1 implementation
+PRD reference: Stage 1 is free (HTTP only, no payments), shouldn't need mock mode or budget
+Key simplifications:
+1. Always use real Bazaar discovery (Stage 1 is free anyway, no reason for mock)
+2. No budget validation for Stage 1 (makes zero payments)
+3. Removed mock mode branch in Stage 1 handler (lines 418-442 simplified to 20 lines)
+4. Added task stage:1 command for one-liner execution
+5. Updated help text: removed --real and --budget references for Stage 1
+Implementation:
+- src/index.ts Stage 1 handler: removed mockMode variable, config branching, endpointSource conditional
+- Always loads real config, always creates BazaarDiscoveryClient, always uses 'real' endpointSource
+- Taskfile.yml: added stage:1 task (npx tsx src/index.ts --agent --stage=1)
+- Help text: simplified examples to show "task stage:1" and optional --network flag
+Results:
+- CLI: npx tsx src/index.ts --agent --stage=1 (just works, no other flags needed)
+- Taskfile: task stage:1 (even simpler)
+- Network: defaults to Base, optional --network=solana
+- Tested both Base and Solana: successful discovery, 66.7% 402 rate (Base), 75% (Solana)
+- TypeScript compiles without errors (npx tsc --noEmit passes)
+Files: src/index.ts, Taskfile.yml, progress.txt
+Cost: $0 (Stage 1 makes no payments, just HTTP GET requests)
+Next: Stage 2 implementation (will require budget for x402 payments)

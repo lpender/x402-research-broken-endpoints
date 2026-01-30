@@ -350,11 +350,13 @@ STAGES:
   2-4                  Future stages (not yet implemented)
 
 EXAMPLES:
-  # Stage 1: Discover endpoints and test 402 implementation (mock mode)
+  # Stage 1: Discover endpoints and test 402 implementation
   npx tsx src/index.ts --agent --stage=1
+  task stage:1
 
-  # Stage 1 on Base with real Bazaar discovery
-  npx tsx src/index.ts --agent --stage=1 --real --network=base --budget=0.05
+  # Stage 1 on Solana network
+  npx tsx src/index.ts --agent --stage=1 --network=solana
+  task stage:1 -- --network=solana
 
   # Run full scientific study (mock mode)
   npx tsx src/index.ts --study --trials=10 --cycles=50
@@ -417,70 +419,33 @@ async function main(): Promise<void> {
         console.log("STAGE 1: DISCOVERY & 402 PREPAYMENT ANALYSIS");
         console.log("=".repeat(60));
         console.log(`Network: ${network.toUpperCase()}`);
-        console.log(`Mode: ${mockMode ? 'MOCK' : 'REAL'}`);
         console.log("=".repeat(60) + "\n");
 
-        // Load config
-        let config: Config;
-        if (mockMode) {
-          config = {
-            evmPrivateKey: 'mock',
-            baseRpcUrl: 'mock',
-            solanaPrivateKey: 'mock',
-            solanaRpcUrl: 'mock',
-            mode: 'mock',
-            iterations: 1,
-            delayMs: 0,
-            maxUsdcSpend: 999999,
-            mockFailureRate: 0.3,
-            zauthDirectoryUrl: 'mock',
-            zauthCheckUrl: 'mock',
-            bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
-            bazaarCacheTtl: 3600000,
-            outputDir: 'results',
-            verbose: true,
-          };
-        } else {
-          config = loadConfig();
-          validateConfig(config, network);
-        }
+        // Load minimal config (just need Bazaar URL)
+        const config = loadConfig();
 
-        // Initialize Bazaar client for real mode
-        let bazaarClient: any = undefined;
-        const endpointSource: 'mock' | 'real' = mockMode ? 'mock' : 'real';
+        // Always initialize Bazaar client for Stage 1
+        const { BazaarDiscoveryClient } = await import('./bazaar-client.js');
+        const bazaarClient = new BazaarDiscoveryClient(
+          config.bazaarUrl,
+          config.bazaarCacheTtl
+        );
 
-        if (!mockMode) {
-          const { BazaarDiscoveryClient } = await import('./bazaar-client.js');
-          bazaarClient = new BazaarDiscoveryClient(
-            config.bazaarUrl,
-            config.bazaarCacheTtl
-          );
-        }
-
-        // Create agent
+        // Create agent (always use "real" endpoint source for Stage 1)
         const agent = new YieldOptimizerAgent(
-          'no-zauth', // Mode doesn't matter for discovery
+          'no-zauth',
           config,
-          null as any, // No x402 client needed for discovery
+          null as any, // No x402 client needed
           undefined,
-          endpointSource,
+          'real', // Always real endpoints
           network,
           bazaarClient
         );
 
-        // Run discovery stage
+        // Run discovery and print report
         const result = await agent.runDiscoveryStage();
-
-        // Print report
-        const { printDiscoveryReport, exportDiscoveryJson, printDetailedResults } = await import('./discovery-report.js');
+        const { printDiscoveryReport, exportDiscoveryJson } = await import('./discovery-report.js');
         printDiscoveryReport(result, network);
-
-        // Print detailed results if verbose
-        if (config.verbose) {
-          printDetailedResults(result);
-        }
-
-        // Export to JSON
         const jsonPath = await exportDiscoveryJson(result, network);
         console.log(`\nResults exported to: ${jsonPath}\n`);
 
