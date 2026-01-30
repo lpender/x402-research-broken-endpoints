@@ -427,3 +427,29 @@ Result:
 - Zauth can now properly filter broken endpoints based on actual uptime data
 Files: src/zauth-client.ts, src/study.ts, progress.txt
 Testing: Mock mode test passes, TypeScript compiles, ready for real validation
+
+--- Enhanced Study Reports & Statistical Tasks ---
+Task: Massively expanded study report with detailed methodology and context
+User feedback: Reports lacked explanation of WHY DeFi, HOW endpoints discovered, WHAT agent does
+Changes to src/report.ts:
+- NEW: Background section explaining DeFi yield optimization as canonical agent use case
+- EXPANDED: Endpoint Discovery (Bazaar vs static, category classification, price extraction)
+- EXPANDED: Agent Workflow with detailed phases:
+  - Phase 1: Data Aggregation (pool/whale/sentiment with examples)
+  - Phase 2: Allocation Calculation (multi-factor scoring formula shown)
+- EXPANDED: Experimental Conditions (clear control vs treatment, hypothesis stated)
+- NEW: Technology Stack section (x402, Zauth, Bazaar, network details)
+- EXPANDED: Study Design (total queries calculated, matched pairs explained)
+- EXPANDED: Limitations (study scope, technical constraints, statistical caveats)
+Changes to Taskfile.yml:
+- study:stats:quick - 5 trials, 5 cycles, ~$4 budget, quick validation (p~0.15)
+- study:stats - 15 trials, 10 cycles, ~$24 budget, statistical significance (p<0.05)
+- study:stats:publication - 25 trials, 20 cycles, ~$100 budget, publication-grade (p<0.01)
+Impact:
+- Reports now explain WHY DeFi use case (agents need diverse APIs, burn is costly)
+- Shows HOW endpoints discovered (Bazaar API or static registry)
+- Reveals WHAT agent does (scoring algorithm, data quality penalties)
+- Clarifies WHEN Zauth helps (reliability checks before x402 payments)
+- Provides simple "task study:stats" command for statistically significant results
+Files: src/report.ts, Taskfile.yml, progress.txt
+Next: User can run "task study:stats" for p<0.05 significance with real Zauth
