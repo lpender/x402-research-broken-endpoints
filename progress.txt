@@ -862,3 +862,29 @@ Impact: Enables price accuracy analysis
 Files: src/payment-parser.ts (new), src/types.ts, src/prepayment-tester.ts, 
        src/stage1-output.ts, src/discovery-report.ts
 Next: Run Stage 1 with updated code to verify pricing analysis in output
+
+2026-01-30 15:45 - Decode payment-required header in endpoints.json output
+Task: Make x402 spec visible by decoding Base64-encoded payment-required headers
+Problem: Headers were Base64-encoded strings, obscuring x402 spec structure (x402Version, resource, accepts)
+Solution:
+- Modified src/stage1-output.ts to include full decoded paymentRequired field in JSON export
+- Added paymentRequired: detail.paymentRequired || null to endpoint mapping (line 560)
+- Created decode-endpoints.cjs utility for retroactive decoding of existing files
+Impact: Users can now see complete x402 spec structure without manual Base64 decoding
+- x402Version field now visible
+- resource object with URL, description, mimeType exposed
+- accepts array with all payment options (multi-chain support visible)
+- Amount fields in atomic units (e.g., "2000" = $0.002 USDC)
+Files: src/stage1-output.ts, decode-endpoints.cjs (new)
+Example decoded structure:
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://x402.silverbackdefi.app/api/v1/defi-yield",
+    "description": "DeFi yield opportunities on Base chain"
+  },
+  "accepts": [
+    {"scheme": "exact", "network": "eip155:8453", "amount": "2000", "asset": "0x833589...", "payTo": "0xD34411..."},
+    {"scheme": "exact", "network": "solana:5eykt4...", "amount": "2000", "asset": "EPjFWdd5...", "payTo": "4HVvnhy..."}
+  ]
+}
