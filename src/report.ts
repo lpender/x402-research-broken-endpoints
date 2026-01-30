@@ -314,44 +314,162 @@ export function generateMarkdownReport(
   }
   sections.push("");
 
+  // Background
+  sections.push("## Background: Why DeFi Yield Optimization?");
+  sections.push("");
+  sections.push(
+    "**DeFi yield optimization is a canonical use case for autonomous agents** that need to aggregate real-time " +
+    "data from multiple paid APIs. This mirrors real-world agent behavior where:"
+  );
+  sections.push("");
+  sections.push("1. **Agents need diverse data sources** - Pool metrics, whale activity, market sentiment");
+  sections.push("2. **Data comes from x402-paywalled APIs** - Each query costs micropayments");
+  sections.push("3. **Endpoint reliability varies** - Some APIs go offline, return stale data, or fail intermittently");
+  sections.push("4. **Failed queries cost money** - Paying for invalid data is \"burn\" (wasted spend)");
+  sections.push("");
+  sections.push(
+    "This study tests whether **Zauth endpoint verification reduces burn** by helping agents avoid " +
+    "unreliable endpoints before making costly x402 payments."
+  );
+  sections.push("");
+
   // Methodology
   sections.push("## Methodology");
   sections.push("");
-  sections.push("### Agent Workflow");
+
+  sections.push("### Endpoint Discovery");
+  sections.push("");
+  const usedBazaar = config.bazaarClient !== undefined;
+  const network = config.network || "base";
+
+  if (usedBazaar) {
+    sections.push(
+      "**Endpoints were dynamically discovered using Coinbase x402 Bazaar API:**"
+    );
+    sections.push("");
+    sections.push(`- **Discovery service:** Coinbase x402 Bazaar (\`${network}\` network)`);
+    sections.push("- **Category classification:** Automated keyword matching (pool/whale/sentiment)");
+    sections.push("- **Price extraction:** USDC atomic units → decimal conversion");
+    sections.push("- **Caching:** 1-hour TTL to minimize Bazaar API calls");
+    sections.push("- **Fallback:** Static registry used if Bazaar unavailable");
+    sections.push("");
+    sections.push(
+      "This tests the **real-world scenario** where agents discover x402 APIs from a registry " +
+      "without prior knowledge of reliability."
+    );
+  } else {
+    sections.push("**Endpoints were selected from a static registry:**");
+    sections.push("");
+    sections.push(`- **Network:** ${network.toUpperCase()}`);
+    sections.push(`- **Source:** Curated endpoint registry (src/real-endpoints.ts)`);
+    sections.push("- **Categories:** Pool data, whale tracking, sentiment analysis");
+    sections.push("- **Selection:** One endpoint per category (3 total per cycle)");
+  }
+  sections.push("");
+
+  sections.push("### Agent Workflow: DeFi Yield Optimizer");
   sections.push("");
   sections.push(
-    "A YieldOptimizerAgent performed realistic DeFi yield optimization cycles, each involving:"
+    "The `YieldOptimizerAgent` simulates a realistic autonomous agent making DeFi investment decisions. " +
+    "Each optimization cycle follows this workflow:"
   );
   sections.push("");
-  sections.push("1. **Pool data queries** - Fetch APY, TVL, volume from Raydium, Orca, Kamino endpoints");
-  sections.push("2. **Whale activity queries** - Detect large position changes for market signals");
-  sections.push("3. **Sentiment data queries** - Check market sentiment for tokens");
-  sections.push("4. **Allocation calculation** - Optimize portfolio based on aggregated data");
+  sections.push("#### 1. Data Aggregation Phase");
   sections.push("");
-  sections.push("Each query required an x402 micropayment. Failed or invalid responses caused \"burn\" (wasted cost).");
+  sections.push(
+    "The agent queries three categories of x402-paywalled endpoints (one endpoint per category):"
+  );
+  sections.push("");
+  sections.push("**Pool Data Endpoints** (liquidity pools, vaults):");
+  sections.push("- Fetches: APY, TVL, 24h volume, fee rate, token pair");
+  sections.push("- Example: Raydium, Orca, Kamino liquidity pool analytics");
+  sections.push("- Purpose: Identify high-yield opportunities");
+  sections.push("");
+  sections.push("**Whale Activity Endpoints** (large wallet movements):");
+  sections.push("- Fetches: Wallet address, action (buy/sell/transfer), token, amount, timestamp");
+  sections.push("- Example: On-chain trackers monitoring wallets with >$1M positions");
+  sections.push("- Purpose: Detect smart money flow and market signals");
+  sections.push("");
+  sections.push("**Sentiment Data Endpoints** (market analysis):");
+  sections.push("- Fetches: Token sentiment score (-1 to 1), confidence, data sources");
+  sections.push("- Example: Social media analysis, price momentum indicators");
+  sections.push("- Purpose: Gauge market sentiment and risk");
+  sections.push("");
+  sections.push(
+    "**Cost:** Each query costs ~$0.01-0.03 USDC via x402 micropayment. " +
+    "Failed or invalid responses still incur payment costs (\"burn\")."
+  );
+  sections.push("");
+
+  sections.push("#### 2. Allocation Calculation Phase");
+  sections.push("");
+  sections.push(
+    "The agent synthesizes all data to select the optimal liquidity pool allocation using a **multi-factor scoring algorithm:**"
+  );
+  sections.push("");
+  sections.push("```");
+  sections.push("score = (apy_normalized × 0.4)           // Base yield");
+  sections.push("      + (tvl_score × 0.2)                // Safety (higher TVL = lower risk)");
+  sections.push("      + (volume_score × 0.1)             // Liquidity quality");
+  sections.push("      - (il_risk_penalty)                // Impermanent loss risk");
+  sections.push("      + (whale_buy_signal × 0.1)         // Smart money confirmation");
+  sections.push("      + (sentiment_weighted × 0.2)       // Market sentiment boost");
+  sections.push("      × data_quality_multiplier          // Penalize missing data");
+  sections.push("```");
+  sections.push("");
+  sections.push("**Data quality penalty:** Missing or failed queries reduce confidence in the allocation.");
+  sections.push("");
+  sections.push(
+    "**Output:** The highest-scoring pool receives a recommended allocation percentage with reasoning."
+  );
   sections.push("");
 
   sections.push("### Experimental Conditions");
   sections.push("");
-  sections.push("**Control (no-zauth):**");
-  sections.push("- Agent queries all endpoints directly via x402");
-  sections.push("- All payments made regardless of endpoint reliability");
+  sections.push("#### Control: No-Zauth");
   sections.push("");
-  sections.push("**Treatment (with-zauth):**");
-  sections.push("- Agent checks Zauth reliability score before each query");
-  sections.push("- Skips endpoints below 70% reliability threshold");
-  sections.push("- Incurs small Zauth verification cost per check");
+  sections.push("- Agent queries **all 3 endpoints** directly via x402 payments");
+  sections.push("- No reliability checks performed");
+  sections.push("- All payments made regardless of endpoint health");
+  sections.push("- Failed queries result in 100% burn (payment made, no valid data received)");
+  sections.push("");
+
+  sections.push("#### Treatment: With-Zauth");
+  sections.push("");
+  sections.push("- Agent checks **Zauth reliability score** before each query:");
+  sections.push("  - Queries Zauth API for endpoint uptime percentage");
+  sections.push("  - Cost: ~$0.001 USDC per Zauth check (10x cheaper than x402 query)");
+  sections.push("- **Filtering rule:** Skip endpoints with <70% uptime");
+  sections.push("  - Avoids wasting x402 payment on likely-failed endpoints");
+  sections.push("  - Agent proceeds with partial data if endpoints are unreliable");
+  sections.push("- **Tradeoff:** Small Zauth cost vs. avoiding large burn on failed queries");
+  sections.push("");
+  sections.push(
+    "**Hypothesis:** Zauth costs < burn savings when endpoint failure rates are significant."
+  );
+  sections.push("");
+
+  sections.push("### Technology Stack");
+  sections.push("");
+  sections.push("- **x402 Protocol:** Micropayments for API access (EIP-402 / SIP-402)");
+  sections.push(`- **Network:** ${network.toUpperCase()} (${network === "base" ? "Ethereum L2" : "Solana L1"})`);
+  sections.push(`- **Payment Client:** @x402/${network === "base" ? "evm" : "svm"} (${network === "base" ? "viem" : "Solana Kit"})`);
+  sections.push("- **Zauth API:** Endpoint health monitoring service");
+  sections.push(usedBazaar ? "- **Discovery:** Coinbase x402 Bazaar dynamic endpoint registry" : "- **Discovery:** Static endpoint registry");
   sections.push("");
 
   sections.push("### Study Design");
   sections.push("");
-  sections.push(`- **Trials per condition:** ${config.trialsPerCondition}`);
-  sections.push(`- **Cycles per trial:** ${config.cyclesPerTrial}`);
+  sections.push(`- **Trials per condition:** ${config.trialsPerCondition} (matched pairs)`);
+  sections.push(`- **Cycles per trial:** ${config.cyclesPerTrial} (optimization rounds)`);
   sections.push(`- **Total data points:** ${config.trialsPerCondition * config.cyclesPerTrial * 2} cycles`);
-  sections.push(`- **Randomization:** Matched pairs with fixed random seeds for reproducibility`);
-  sections.push(`- **Payment mode:** ${config.mockMode ? "Mock (simulated)" : "Real x402 payments"}`);
+  sections.push(`- **Randomization:** Fixed random seed for reproducibility`);
+  sections.push(`- **Payment mode:** ${config.mockMode ? "Mock (simulated x402 payments)" : "Real x402 payments on " + network.toUpperCase()}`);
+  sections.push(`- **Endpoint queries:** 3 per cycle (pool + whale + sentiment)`);
+  const totalQueries = config.trialsPerCondition * config.cyclesPerTrial * 3 * 2;
+  sections.push(`- **Total queries:** ${totalQueries} x402 API calls across both conditions`);
   if (metadata.gitCommitHash) {
-    sections.push(`- **Code version:** ${metadata.gitCommitHash.slice(0, 8)}`);
+    sections.push(`- **Code version:** \`${metadata.gitCommitHash}\``);
   }
   sections.push("");
 
@@ -467,9 +585,21 @@ export function generateMarkdownReport(
   // Limitations
   sections.push("## Limitations");
   sections.push("");
-  sections.push("- **Simulation:** " + (config.mockMode ? "Study used mock endpoints and simulated payments" : "Study used real x402 payments but mock endpoint behavior"));
-  sections.push("- **Scope:** Limited to DeFi yield optimization workflow; results may differ for other use cases");
-  sections.push("- **Endpoint reliability:** Study used fixed failure rates; real-world reliability varies over time");
+  sections.push("### Study Scope");
+  sections.push("- **Use case specificity:** Results apply to DeFi yield optimization workflows requiring 3-5 diverse APIs");
+  sections.push("- **Agent type:** Autonomous agents with data aggregation needs; may differ for API-to-API integrations");
+  sections.push("- **Endpoint failure patterns:** Tested with " + (config.mockMode ? "simulated" : "real") + " endpoint reliability; actual patterns vary by provider");
+  sections.push("");
+  sections.push("### Technical Constraints");
+  sections.push("- **Payment mode:** " + (config.mockMode ? "Mock x402 payments (simulated costs)" : `Real x402 payments on ${network.toUpperCase()}`));
+  sections.push("- **Endpoint discovery:** " + (usedBazaar ? "Bazaar-discovered endpoints (reliability unknown)" : "Curated static registry (known endpoints)"));
+  sections.push("- **Network coverage:** Single network tested (" + network.toUpperCase() + "); cross-chain behavior not evaluated");
+  sections.push("- **Time window:** Snapshot study; long-term endpoint reliability drift not captured");
+  sections.push("");
+  sections.push("### Statistical Limitations");
+  sections.push(`- **Sample size:** ${config.trialsPerCondition} trials per condition; larger N improves power`);
+  sections.push("- **Variance:** Wide confidence intervals suggest more trials needed for precise estimates");
+  sections.push("- **Matched pairs:** Same random seed ensures fair comparison but limits generalizability");
   sections.push("");
 
   // Reproducibility

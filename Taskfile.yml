@@ -54,6 +54,22 @@ tasks:
     cmds:
       - npx tsx src/index.ts --study --real --use-bazaar --network=base {{.CLI_ARGS}}
 
+  # Statistical studies (real mode, sufficient trials for significance)
+  study:stats:quick:
+    desc: Quick statistical validation (5 trials, 5 cycles, ~$4, p~0.15)
+    cmds:
+      - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=5 --cycles=5 --budget=4.00 --yes {{.CLI_ARGS}}
+
+  study:stats:
+    desc: Statistical study for significance (15 trials, 10 cycles, ~$24, p<0.05)
+    cmds:
+      - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=15 --cycles=10 --budget=24.00 --yes {{.CLI_ARGS}}
+
+  study:stats:publication:
+    desc: Publication-grade study (25 trials, 20 cycles, ~$100, p<0.01)
+    cmds:
+      - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=25 --cycles=20 --budget=100.00 --yes {{.CLI_ARGS}}
+
   # Debug commands
   agent:
     desc: Run single agent in debug mode
