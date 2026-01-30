@@ -756,3 +756,11 @@ Updated bazaar-rate-limit-issue.md:
 - Reframed issue from "rate limit too strict" to "missing filtering capability"
 Next: Submit GitHub issue emphasizing server-side filtering as primary solution
 Files: bazaar-rate-limit-issue.md, progress.txt
+
+2026-01-30 12:30 - Update result folder naming convention
+Task: Implement date-first EST naming for study results
+Changes: Modified createStage1OutputFolder() in src/stage1-output.ts
+Format: YYYY-MM-DDTHH-MM-SS_stage1_{network} (e.g., 2026-01-30T12-26-33_stage1_base)
+Timezone: EST/EDT via America/New_York (automatic DST handling)
+Files: src/stage1-output.ts
+Notes: Applied to Stage 1 results only; future stages will need similar updates
