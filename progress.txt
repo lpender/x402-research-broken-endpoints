@@ -792,3 +792,34 @@ Key finding: Original "57 endpoints allow open access or failed" splits into:
 - Only 2 endpoints (0.43%) truly allow open access with 200 OK
 - 55 endpoints (11.88%) failed with various error codes (majority are 404)
 Files: results/2026-01-30T12-30-18_stage1_base/discovery.json, endpoints.json
+
+2026-01-30 13:15 - Save Bazaar metadata to endpoints.json
+Task: Preserve all Bazaar API metadata in Stage 1 endpoints.json output
+PRD ref: Stage 1 metadata preservation (endpoint discovery requires metadata)
+Problem: endpoints.json only saved PrepaymentTestResult (url, requires402, status, headers, error)
+- Lost name, category, price, description, outputSchema, payTo, mimeType, etc.
+- Made endpoints.json useless for discovery (just URLs without context)
+Root cause: Data pipeline discarded metadata at each transform step:
+- Bazaar API → RealEndpoint (kept name, category, price, metadata.description only)
+- RealEndpoint → Endpoint (lost metadata field in toEndpoint())
+- Endpoint → PrepaymentTestResult (lost name, category, price)
+- PrepaymentTestResult → endpoints.json (no metadata preserved)
+Solution: Merge endpoint metadata with test results throughout pipeline
+Changes:
+- src/types.ts: Added EnrichedPrepaymentTestResult extending PrepaymentTestResult
+  - DiscoveryStageResult.details now uses enriched type
+- src/bazaar-mapper.ts: Preserve ALL Bazaar metadata fields (not just description)
+  - metadata now includes: description, payTo, scheme, network, asset, maxAmountRequired, maxTimeoutSeconds, mimeType, outputSchema, extra
+- src/config.ts: Added metadata?: any field to Endpoint interface
+- src/real-endpoints.ts: Updated toEndpoint() to include metadata field
+- src/yield-agent.ts: Merge endpoint metadata with test results in runDiscoveryStage()
+  - Created enrichedTests array mapping test results to endpoint metadata
+- src/stage1-output.ts: Save enriched data to endpoints.json
+  - Each endpoint now has: url, name, category, price, requires402, status, headers, error, metadata
+Impact: endpoints.json now contains full Bazaar metadata for endpoint discovery
+- description field enables finding relevant endpoints (e.g., "DeFi yield optimization")
+- outputSchema shows expected response format
+- payTo, mimeType, and other Bazaar fields preserved
+Files: src/types.ts, src/bazaar-mapper.ts, src/config.ts, src/real-endpoints.ts, src/yield-agent.ts, src/stage1-output.ts
+Next: Run Stage 1 to verify enriched endpoints.json output
+
