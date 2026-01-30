@@ -151,8 +151,10 @@ export class BazaarDiscoveryClient {
     let offset = 0;
     const limit = options.limit || 100;
     let total: number | undefined;
-    const delayMs = 300; // 300ms delay between requests to avoid rate limiting
+    const delayMs = 1000; // 1 second delay between requests to avoid rate limiting
     const maxPages = 200; // Safety limit to prevent infinite loops
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
 
     console.log('[Bazaar] Fetching all pages...');
 
@@ -170,6 +172,9 @@ export class BazaarDiscoveryClient {
           limit,
           offset
         });
+
+        // Reset error counter on success
+        consecutiveErrors = 0;
 
         // Add items from this page
         allItems.push(...response.items);
@@ -200,9 +205,22 @@ export class BazaarDiscoveryClient {
         offset += limit;
         console.log(`[Bazaar] Fetched ${allItems.length} endpoints (page ${pageCount})...`);
       } catch (error: any) {
-        // If we hit rate limit or error after fetching some pages, return what we have
+        consecutiveErrors++;
+
+        // Check if it's a rate limit error
+        const isRateLimit = error.message?.includes('429');
+
+        if (isRateLimit && consecutiveErrors <= maxConsecutiveErrors) {
+          // Exponential backoff for rate limits
+          const backoffMs = delayMs * Math.pow(2, consecutiveErrors);
+          console.log(`[Bazaar] Rate limit hit (attempt ${consecutiveErrors}/${maxConsecutiveErrors}), waiting ${backoffMs}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          continue; // Retry the same page
+        }
+
+        // If we hit too many errors or non-rate-limit error, return what we have
         if (allItems.length > 0) {
-          console.log(`[Bazaar] Stopped early due to error: ${error.message}`);
+          console.log(`[Bazaar] Stopped after ${consecutiveErrors} consecutive errors: ${error.message}`);
           console.log(`[Bazaar] Returning ${allItems.length} endpoints fetched so far`);
           break;
         }
