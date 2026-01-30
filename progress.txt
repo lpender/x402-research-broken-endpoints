@@ -378,3 +378,30 @@ Task: DOC-001 - Final documentation update
 PRD item completed: DOC-001
 Files: prd-items.json, progress.txt
 Status: ALL SPRINT 3 PRD ITEMS COMPLETE
+
+--- x402 Bazaar Integration ---
+Task: Implemented dynamic endpoint discovery via Coinbase x402 Bazaar API
+Approach: Bazaar as primary source with static registry fallback (opt-in via --use-bazaar)
+Key decisions:
+- TTL caching (1hr default) to minimize API calls
+- Keyword-based category classification (pool/whale/sentiment)
+- Graceful fallback to static REAL_ENDPOINTS on Bazaar error
+- Opt-in design (disabled by default, requires --use-bazaar flag)
+Files changed:
+- src/bazaar-client.ts (NEW): HTTP client with pagination, caching, error handling
+- src/bazaar-mapper.ts (NEW): Transform Bazaar responses to RealEndpoint format
+  - classifyCategory(): keyword matching for pool/whale/sentiment
+  - matchesNetwork(): EIP-155 chain IDs + asset address regex
+  - extractPriceUsdc(): converts atomic USDC units (6 decimals)
+- src/config.ts: Added useBazaar, bazaarUrl, bazaarCacheTtl fields + CLI parsing
+- src/real-endpoints.ts: Made getRealEndpointsAsEndpoints() async, added Bazaar integration
+- src/study.ts: Pass bazaarClient through runScientificStudy() → runTrial() chain
+- src/yield-agent.ts: Made getEndpoints() async, uses Bazaar when enabled
+- src/types.ts: Added bazaarClient to StudyConfig
+- src/index.ts: Initialize BazaarDiscoveryClient when --use-bazaar set
+- .env.example: Documented USE_BAZAAR, BAZAAR_URL, BAZAAR_CACHE_TTL vars
+Testing:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Mock study runs successfully (--study --trials=1 --cycles=2)
+- Bazaar disabled by default (backward compatible)
+Next: Manual E2E test with --use-bazaar flag on real Bazaar API
