@@ -6,6 +6,7 @@
 
 import type { DiscoveryStageResult } from "./types.js";
 import type { Network } from "./config.js";
+import { formatPrice, formatNetwork } from "./payment-parser.js";
 import * as fs from "fs/promises";
 import * as path from "path";
 
@@ -32,6 +33,30 @@ export function printDiscoveryReport(
 
   console.log("\nConclusion:");
   console.log(`  ${result.percentage402.toFixed(1)}% of endpoints properly implement 402 prepayment protocol`);
+
+  // Show 402 response pricing analysis
+  const with402Price = result.details.filter(d => d.requires402 && d.requested402Price !== undefined && d.requested402Price !== null);
+  if (with402Price.length > 0) {
+    const prices = with402Price.map(d => d.requested402Price!);
+
+    // Detect discrepancies
+    const discrepancies = result.details.filter(d =>
+      d.price &&
+      d.requested402Price !== undefined &&
+      d.requested402Price !== null &&
+      Math.abs(d.price - d.requested402Price) > 0.0001
+    );
+
+    console.log("\n402 Response Pricing Analysis:");
+    console.log(`  Endpoints with parsed prices: ${with402Price.length}/${result.requires402}`);
+    console.log(`  Price range: ${formatPrice(Math.min(...prices))} - ${formatPrice(Math.max(...prices))}`);
+    console.log(`  Average price: ${formatPrice(prices.reduce((a, b) => a + b, 0) / prices.length)}`);
+
+    if (discrepancies.length > 0) {
+      console.log(`  ⚠️  Price discrepancies found: ${discrepancies.length} endpoints`);
+      console.log(`     (Bazaar metadata doesn't match actual 402 response)`);
+    }
+  }
 
   console.log("\nNext Stage: Query endpoints with x402 payment to validate data quality");
 
@@ -102,6 +127,29 @@ export function printDetailedResults(result: DiscoveryStageResult): void {
     requires402.forEach((detail, idx) => {
       console.log(`  ${idx + 1}. ${detail.url}`);
       console.log(`     Status: ${detail.status}`);
+
+      // Show both Bazaar price and actual 402 price
+      if (detail.price !== undefined) {
+        console.log(`     Bazaar price: ${formatPrice(detail.price)} USDC`);
+      }
+
+      if (detail.requested402Price !== undefined && detail.requested402Price !== null) {
+        console.log(`     Actual 402 price: ${formatPrice(detail.requested402Price)} USDC`);
+
+        // Flag discrepancies
+        if (detail.price && Math.abs(detail.price - detail.requested402Price) > 0.0001) {
+          console.log(`     ⚠️  Price mismatch! Bazaar: $${detail.price}, Actual: $${detail.requested402Price}`);
+        }
+
+        // Show network options
+        if (detail.paymentOptions && detail.paymentOptions.networks.length > 1) {
+          console.log(`     Networks: ${detail.paymentOptions.networks.map(formatNetwork).join(', ')}`);
+        }
+      }
+
+      if (detail.parseError) {
+        console.log(`     ⚠️  Parse error: ${detail.parseError}`);
+      }
     });
     console.log("");
   }

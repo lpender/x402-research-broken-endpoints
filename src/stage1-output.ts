@@ -99,6 +99,14 @@ export function generateStage1ReadMe(
   const { total, requires402, openAccess, failures, percentage402 } = result;
   const tested = total - failures;
 
+  // Calculate price discrepancies
+  const priceDiscrepancies = result.details.filter(d =>
+    d.price &&
+    d.requested402Price !== undefined &&
+    d.requested402Price !== null &&
+    Math.abs(d.price - d.requested402Price) > 0.0001
+  );
+
   return `# Stage 1: Discovery & 402 Prepayment Analysis
 
 **Network**: ${network.charAt(0).toUpperCase() + network.slice(1)} (${networkId})
@@ -360,6 +368,13 @@ Based on this discovery run and broader ecosystem feedback:
 - **No caching**: Agents must re-test reliability on every run
 - **Scaling concern**: As Bazaar grows to 100s of endpoints, discovery becomes bottleneck
 
+### Problem 5: Price Accuracy in Bazaar Metadata
+- **Observation**: ${priceDiscrepancies.length} endpoints show price discrepancies between Bazaar metadata and actual 402 responses
+- **Issue**: Bazaar metadata may not match actual 402 response prices
+${priceDiscrepancies.length > 0 ? `- **Examples**:
+${priceDiscrepancies.slice(0, 3).map(d => `  - ${d.url}: Bazaar=$${d.price}, Actual=$${d.requested402Price}`).join('\n')}` : '- **All prices match**: Bazaar metadata accurately reflects actual endpoint pricing'}
+- **Impact**: Agents using Bazaar prices for cost estimation may have inaccurate budgets
+
 ---
 
 ## 5. Experimental Method: Stage 1 Discovery
@@ -473,6 +488,18 @@ export async function exportStage1Results(
   );
   await fs.writeFile(paths.readmePath, readme);
 
+  // Calculate 402 response price statistics
+  const with402Prices = result.details.filter(d => d.requested402Price !== undefined && d.requested402Price !== null);
+  const requested402Prices = with402Prices.map(d => d.requested402Price!);
+
+  // Detect price discrepancies
+  const priceDiscrepancies = result.details.filter(d =>
+    d.price &&
+    d.requested402Price !== undefined &&
+    d.requested402Price !== null &&
+    Math.abs(d.price - d.requested402Price) > 0.0001
+  );
+
   // Write discovery.json (summary statistics)
   const discoveryJson = {
     stage: 1,
@@ -495,7 +522,19 @@ export async function exportStage1Results(
       openAccess: result.openAccess,
       failures: result.failures,
       percentage402: parseFloat(result.percentage402.toFixed(2))
-    }
+    },
+    pricing402Response: requested402Prices.length > 0 ? {
+      endpointsWithParsedPrices: requested402Prices.length,
+      minPriceUsdc: Math.min(...requested402Prices),
+      maxPriceUsdc: Math.max(...requested402Prices),
+      avgPriceUsdc: requested402Prices.reduce((a, b) => a + b, 0) / requested402Prices.length,
+      priceDiscrepancies: priceDiscrepancies.length,
+      discrepancyExamples: priceDiscrepancies.slice(0, 5).map(d => ({
+        url: d.url,
+        bazaarPrice: d.price,
+        actual402Price: d.requested402Price
+      }))
+    } : null
   };
   await fs.writeFile(
     paths.discoveryJsonPath,
@@ -512,12 +551,19 @@ export async function exportStage1Results(
       url: detail.url,
       name: detail.name,
       category: detail.category,
-      price: detail.price,
+      price: detail.price,           // From Bazaar metadata (existing)
       requires402: detail.requires402,
       status: detail.status,
       headers: detail.headers,
       error: detail.error || null,
-      metadata: detail.metadata || {}
+      metadata: detail.metadata || {},
+      // 402 response pricing fields:
+      requested402Price: detail.requested402Price !== undefined ? detail.requested402Price : null,
+      paymentOptions: detail.paymentOptions || null,
+      priceDiscrepancy: (detail.price && detail.requested402Price !== undefined && detail.requested402Price !== null)
+        ? Math.abs(detail.price - detail.requested402Price) > 0.0001
+        : null,
+      parseError: detail.parseError || null
     }))
   };
   await fs.writeFile(

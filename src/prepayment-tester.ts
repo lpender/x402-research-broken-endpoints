@@ -5,13 +5,12 @@
  * Uses raw HTTP fetch - NOT the x402 library - to check status codes.
  */
 
-export interface PrepaymentTestResult {
-  url: string;
-  requires402: boolean;
-  status: number;
-  headers: Record<string, string>;
-  error?: string;
-}
+import type { PrepaymentTestResult } from './types.js';
+import {
+  parsePaymentRequiredHeader,
+  findPrimaryUsdcPrice,
+  summarizePaymentOptions
+} from './payment-parser.js';
 
 /**
  * Test a single endpoint to determine if it requires 402 prepayment.
@@ -54,6 +53,27 @@ export async function testPrepayment(
 
     // Check if endpoint requires prepayment
     result.requires402 = response.status === 402;
+
+    // Parse payment-required header if 402 response
+    if (result.requires402 && result.headers['payment-required']) {
+      try {
+        const paymentHeader = parsePaymentRequiredHeader(
+          result.headers['payment-required']
+        );
+
+        if (paymentHeader) {
+          result.paymentRequired = paymentHeader;
+          result.requested402Price = findPrimaryUsdcPrice(paymentHeader.accepts);
+          result.paymentOptions = summarizePaymentOptions(paymentHeader.accepts);
+        } else {
+          result.parseError = 'Failed to parse payment-required header';
+        }
+      } catch (error) {
+        result.parseError = error instanceof Error ? error.message : String(error);
+      }
+    } else if (result.requires402 && !result.headers['payment-required']) {
+      result.parseError = 'Missing payment-required header';
+    }
 
   } catch (error) {
     // Handle timeout, network errors, etc.

@@ -102,12 +102,45 @@ export interface StudyConfig {
   bazaarClient?: any; // BazaarDiscoveryClient instance (optional)
 }
 
+export interface PaymentRequirement {
+  scheme: string;
+  network: string;
+  amount: string;        // Atomic units
+  amountUsdc: number;    // Converted to human-readable USDC
+  asset: string;
+  payTo: string;
+  maxTimeoutSeconds?: number;
+  extra?: Record<string, any>;
+}
+
+export interface PaymentRequiredHeader {
+  x402Version: number;
+  error: string;
+  resource: {
+    url: string;
+    description?: string;
+    mimeType?: string;
+  };
+  accepts: PaymentRequirement[];
+  extensions?: any;
+}
+
 export interface PrepaymentTestResult {
   url: string;
   requires402: boolean;
   status: number;
   headers: Record<string, string>;
   error?: string;
+  // 402 response parsing fields:
+  paymentRequired?: PaymentRequiredHeader;  // Full parsed payment-required header
+  requested402Price?: number | null;        // Actual price from 402 response (null = no USDC found, undefined = not parsed)
+  paymentOptions?: {
+    count: number;
+    networks: string[];
+    minPriceUsdc: number;
+    maxPriceUsdc: number;
+  };
+  parseError?: string;  // Error message if header parsing failed
 }
 
 export interface EnrichedPrepaymentTestResult extends PrepaymentTestResult {
