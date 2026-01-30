@@ -670,3 +670,26 @@ Limitations discovered:
 - However, 400 endpoints >> 100 endpoints (4x larger sample)
 Files: src/bazaar-client.ts, src/yield-agent.ts, src/stage1-output.ts, progress.txt
 Next: Consider exponential backoff or longer delays if full 12K dataset required
+
+Task: Attempted retry logic with exponential backoff
+- Increased base delay from 300ms to 1s between requests
+- Added retry logic: up to 3 attempts with exponential backoff (2s, 4s, 8s)
+- Track consecutive errors, reset counter on success
+Result: Rate limit remains insurmountable
+- Still stops at page 4 (~400 endpoints)
+- Even with 8s delays, API returns 429 on subsequent requests
+- Rate limit appears to be per-IP with strict threshold (~4-5 requests)
+Observation: All 400 fetched endpoints passed network filter
+- afterNetworkFilter: 400 (100% pass rate)
+- Suggests network=eip155:8453 parameter works server-side
+- Unknown if more Base endpoints exist beyond offset 400
+Created bazaar-rate-limit-issue.md:
+- GitHub issue template for Coinbase Bazaar API team
+- Documents pagination attempt, rate limit behavior, proposed solutions
+- Request for higher limits or bulk export endpoint for research
+Decision: Accept 400-endpoint limitation for now
+- 400 endpoints is 4x better than original 100-endpoint limit
+- Maps to 45 DeFi-relevant endpoints for Base (7 pool, 9 whale, 29 sentiment)
+- Sufficient sample size for Stage 1 discovery analysis
+- Can revisit if Bazaar team increases rate limits
+Files: src/bazaar-client.ts, bazaar-rate-limit-issue.md, progress.txt
