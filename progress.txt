@@ -400,8 +400,13 @@ Files changed:
 - src/types.ts: Added bazaarClient to StudyConfig
 - src/index.ts: Initialize BazaarDiscoveryClient when --use-bazaar set
 - .env.example: Documented USE_BAZAAR, BAZAAR_URL, BAZAAR_CACHE_TTL vars
+- Taskfile.yml: Added study:bazaar, study:bazaar:quick, study:bazaar:real tasks
 Testing:
 - TypeScript compilation passes (npx tsc --noEmit)
 - Mock study runs successfully (--study --trials=1 --cycles=2)
 - Bazaar disabled by default (backward compatible)
+Taskfile usage:
+- task study:bazaar:quick - Quick Bazaar test (2 trials, 3 cycles)
+- task study:bazaar -- --trials=10 --cycles=50 - Custom params
+- task study:bazaar:real -- --budget=0.50 - Real mode test
 Next: Manual E2E test with --use-bazaar flag on real Bazaar API
