@@ -558,6 +558,7 @@ export async function exportStage1Results(
       error: detail.error || null,
       metadata: detail.metadata || {},
       // 402 response pricing fields:
+      paymentRequired: detail.paymentRequired || null,  // Full decoded x402 spec structure
       requested402Price: detail.requested402Price !== undefined ? detail.requested402Price : null,
       paymentOptions: detail.paymentOptions || null,
       priceDiscrepancy: (detail.price && detail.requested402Price !== undefined && detail.requested402Price !== null)
