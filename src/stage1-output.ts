@@ -44,12 +44,36 @@ export interface Stage1OutputPaths {
 
 /**
  * Create timestamped output folder for Stage 1 run
+ * Format: YYYY-MM-DDTHH-MM-SS_stage1_{network}
+ * Time is in EST (UTC-5/UTC-4 depending on DST)
  */
 export function createStage1OutputFolder(
   network: string,
   timestamp: string
 ): Stage1OutputPaths {
-  const folderName = `stage1_${network}_${timestamp.replace(/[:.]/g, '-').slice(0, -5)}`;
+  // Convert ISO timestamp to EST
+  const date = new Date(timestamp);
+
+  // EST is UTC-5, EDT is UTC-4. Use toLocaleString to handle DST automatically
+  const estDateString = date.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  // Parse the formatted string and convert to ISO-like format
+  // Format from toLocaleString: "MM/DD/YYYY, HH:MM:SS"
+  const [datePart, timePart] = estDateString.split(', ');
+  const [month, day, year] = datePart.split('/');
+  const [hour, minute, second] = timePart.split(':');
+
+  const estTimestamp = `${year}-${month}-${day}T${hour}-${minute}-${second}`;
+  const folderName = `${estTimestamp}_stage1_${network}`;
   const folderPath = path.join('results', folderName);
 
   return {
