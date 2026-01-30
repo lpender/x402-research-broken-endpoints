@@ -772,3 +772,23 @@ Backoff: Exponential from 2s to 2048s (2^1 through 2^11)
 Files: src/bazaar-client.ts
 Reasoning: Prevent premature failure when Bazaar API rate limits for extended periods
 Total potential wait: ~4094s across all retry attempts
+
+2026-01-30 12:35 - Stage 1 Results Analysis: HTTP Status Code Breakdown
+Task: Analyzed 2026-01-30T12-30-18_stage1_base discovery results for detailed status codes
+Total: 463 DeFi-relevant endpoints tested (from 4,000 Bazaar endpoints, filtered for Base network)
+Breakdown by HTTP status:
+- 402 Payment Required: 406 (87.69%) - correctly implement x402 prepayment protocol
+- 404 Not Found: 34 (7.34%) - broken/missing endpoints
+- 405 Method Not Allowed: 16 (3.46%) - endpoint exists but GET not supported
+- 503 Service Unavailable: 3 (0.65%) - temporary server failures
+- 200 OK: 2 (0.43%) - open access, no payment required
+- 520 Unknown Error: 1 (0.22%) - CDN/proxy error
+- 500 Internal Server Error: 1 (0.22%) - server-side failure
+Summary categories:
+- Require 402 prepayment: 406 (87.69%) - GOOD (protocol implemented)
+- Open access: 2 (0.43%) - endpoints work but don't require payment
+- Failed testing: 55 (11.88%) - broken/misconfigured endpoints
+Key finding: Original "57 endpoints allow open access or failed" splits into:
+- Only 2 endpoints (0.43%) truly allow open access with 200 OK
+- 55 endpoints (11.88%) failed with various error codes (majority are 404)
+Files: results/2026-01-30T12-30-18_stage1_base/discovery.json, endpoints.json
