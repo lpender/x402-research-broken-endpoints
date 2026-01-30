@@ -9,7 +9,7 @@ import type {
 import type { Config, Network } from "./config.js";
 import { YieldOptimizerAgent } from "./yield-agent.js";
 import { createMockX402Client, createRealX402Client, type X402Client } from "./x402-client.js";
-import { createMockZauthClient } from "./zauth-client.js";
+import { createMockZauthClient, createRealZauthClient, type ZauthClient } from "./zauth-client.js";
 import {
   mean,
   standardDeviation,
@@ -126,10 +126,16 @@ export async function runScientificStudy(
 
   // Create x402 client once (real client initialized once, reused across trials)
   let x402Client: X402Client | null = null;
+  let zauthClient: ZauthClient | null = null;
+
   if (!config.mockMode) {
     console.log(`Initializing real x402 client for ${network}...`);
     x402Client = await createRealX402Client(baseConfig, network);
-    console.log("Real x402 client ready.\n");
+    console.log("Real x402 client ready.");
+
+    console.log(`Initializing real Zauth client for ${network}...`);
+    zauthClient = await createRealZauthClient(baseConfig, network);
+    console.log("Real Zauth client ready.\n");
   }
 
   // Set up Ctrl+C handler
@@ -170,7 +176,8 @@ export async function runScientificStudy(
         x402Client,
         spendTracker,
         network,
-        bazaarClient
+        bazaarClient,
+        zauthClient
       );
       noZauthTrials.push(noZauthResult);
       progress.completedTrials++;
@@ -188,7 +195,8 @@ export async function runScientificStudy(
         x402Client,
         spendTracker,
         network,
-        bazaarClient
+        bazaarClient,
+        zauthClient
       );
       withZauthTrials.push(withZauthResult);
       progress.completedTrials++;
@@ -291,14 +299,17 @@ async function runTrial(
   sharedX402Client: X402Client | null = null,
   spendTracker: SpendTracker | null = null,
   network: Network = "base",
-  bazaarClient?: any
+  bazaarClient?: any,
+  sharedZauthClient: ZauthClient | null = null
 ): Promise<TrialResults> {
   const rng = new SeededRandom(seed);
   const metrics: CycleMetrics[] = [];
 
-  // Use shared real client if provided, otherwise create mock client
+  // Use shared real clients if provided, otherwise create mock clients
   const x402Client = sharedX402Client ?? createMockX402Client(config, rng, mockMode);
-  const zauthClient = mode === "with-zauth" ? createMockZauthClient(config, rng) : undefined;
+  const zauthClient = mode === "with-zauth"
+    ? (sharedZauthClient ?? createMockZauthClient(config, rng))
+    : undefined;
 
   // Determine endpoint source based on mock mode
   const endpointSource = mockMode ? "mock" : "real";

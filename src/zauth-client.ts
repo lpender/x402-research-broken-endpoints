@@ -289,3 +289,16 @@ export function createMockZauthClient(
 ): MockZauthClient {
   return new MockZauthClient(config, rng);
 }
+
+// Factory function for real mode (used by study runner)
+export async function createRealZauthClient(
+  config: Config,
+  network: Network = "base"
+): Promise<RealZauthClient> {
+  const client = new RealZauthClient(config, network);
+  await client.initialize();
+  return client;
+}
+
+// Type export for unified client handling
+export type ZauthClient = MockZauthClient | RealZauthClient;
