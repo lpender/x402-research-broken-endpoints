@@ -29,20 +29,27 @@ const CATEGORY_KEYWORDS = {
  */
 export function mapBazaarToRealEndpoints(
   resources: BazaarResource[],
-  network: 'base' | 'solana'
+  network: 'base' | 'solana',
+  verbose?: boolean
 ): RealEndpoint[] {
   const endpoints: RealEndpoint[] = [];
 
+  if (verbose) {
+    console.log(`\n[Bazaar Debug] Mapping ${resources.length} resources for network: ${network}\n`);
+  }
+
   for (const resource of resources) {
     // Filter by network
-    if (!matchesNetwork(resource, network)) {
+    if (!matchesNetwork(resource, network, verbose)) {
       continue;
     }
 
     // Classify category
-    const category = classifyCategory(resource);
+    const category = classifyCategory(resource, verbose);
     if (!category) {
-      console.log(`[Bazaar] Skipping unclassified endpoint: ${resource.url}`);
+      if (!verbose) {
+        console.log(`[Bazaar] Skipping unclassified endpoint: ${resource.url}`);
+      }
       continue;
     }
 
@@ -50,23 +57,44 @@ export function mapBazaarToRealEndpoints(
     const price = extractPriceUsdc(resource.accepts || []);
 
     // Build endpoint
-    endpoints.push({
+    const endpoint = {
       url: resource.url,
       name: extractName(resource),
       category,
       price,
       metadata: resource.metadata
-    });
+    };
+    endpoints.push(endpoint);
+
+    if (verbose) {
+      console.log(`[Bazaar Debug] ✓ Mapped endpoint: ${endpoint.url}`);
+      console.log(`  Category: ${endpoint.category}, Price: $${endpoint.price.toFixed(4)}, Name: ${endpoint.name}\n`);
+    }
   }
 
-  console.log(`[Bazaar] Mapped ${endpoints.length}/${resources.length} endpoints for ${network}`);
+  if (verbose) {
+    console.log(`[Bazaar Debug] Mapping complete:`);
+    console.log(`  Total input: ${resources.length}`);
+    console.log(`  Successfully mapped: ${endpoints.length}`);
+    console.log(`  Filtered out: ${resources.length - endpoints.length}`);
+
+    // Show categories found
+    const categories = [...new Set(endpoints.map(e => e.category))];
+    if (categories.length > 0) {
+      console.log(`  Categories found: ${categories.join(', ')}`);
+    }
+    console.log('');
+  } else {
+    console.log(`[Bazaar] Mapped ${endpoints.length}/${resources.length} endpoints for ${network}`);
+  }
+
   return endpoints;
 }
 
 /**
  * Classify endpoint category based on keywords
  */
-function classifyCategory(resource: BazaarResource): 'pool' | 'whale' | 'sentiment' | null {
+function classifyCategory(resource: BazaarResource, verbose?: boolean): 'pool' | 'whale' | 'sentiment' | null {
   const text = [
     resource.url,
     resource.metadata?.name || '',
@@ -80,13 +108,22 @@ function classifyCategory(resource: BazaarResource): 'pool' | 'whale' | 'sentime
     }
   }
 
+  // Classification failed - log details if verbose
+  if (verbose) {
+    console.log(`[Bazaar Debug] Category classification failed for: ${resource.url}`);
+    console.log(`  Name: ${resource.metadata?.name || '(none)'}`);
+    console.log(`  Description: ${resource.metadata?.description || '(none)'}`);
+    console.log(`  Category: ${resource.metadata?.category || '(none)'}`);
+    console.log(`  Combined text checked: "${text.substring(0, 150)}${text.length > 150 ? '...' : ''}"\n`);
+  }
+
   return null; // Unclassified endpoints are filtered out
 }
 
 /**
  * Check if resource matches the target network
  */
-function matchesNetwork(resource: BazaarResource, network: 'base' | 'solana'): boolean {
+function matchesNetwork(resource: BazaarResource, network: 'base' | 'solana', verbose?: boolean): boolean {
   const accepts = resource.accepts || [];
 
   for (const requirement of accepts) {
@@ -110,6 +147,21 @@ function matchesNetwork(resource: BazaarResource, network: 'base' | 'solana'): b
         return true;
       }
     }
+  }
+
+  // Network filter rejected - log details if verbose
+  if (verbose) {
+    console.log(`[Bazaar Debug] Network filter rejected: ${resource.url}`);
+    console.log(`  Required network: ${network}`);
+    console.log(`  Payment requirements:`);
+    if (accepts.length === 0) {
+      console.log(`    (none)`);
+    } else {
+      accepts.forEach((req, idx) => {
+        console.log(`    [${idx}] scheme: ${req.scheme}, network: ${req.network || '(none)'}, asset: ${req.asset || '(none)'}`);
+      });
+    }
+    console.log('');
   }
 
   return false;

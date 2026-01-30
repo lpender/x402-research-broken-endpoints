@@ -453,3 +453,23 @@ Impact:
 - Provides simple "task study:stats" command for statistically significant results
 Files: src/report.ts, Taskfile.yml, progress.txt
 Next: User can run "task study:stats" for p<0.05 significance with real Zauth
+
+--- Debug Logging for Bazaar Discovery ---
+Task: Implemented comprehensive debug logging for Bazaar discovery pipeline
+Problem: "Discovery returned no endpoints" warning lacked visibility into why items filtered out
+Solution: Added --verbose flag support throughout Bazaar discovery flow
+Changes:
+- src/bazaar-client.ts: Added verbose param to DiscoveryOptions, logs raw API response (total items, sample of first 3 with full structure)
+- src/bazaar-mapper.ts: Added verbose param to mapBazaarToRealEndpoints(), matchesNetwork(), classifyCategory()
+  - Network filter rejection: logs URL, required network, all payment requirements with scheme/network/asset
+  - Category classification failure: logs URL, name, description, category, combined text checked
+  - Successful mapping: logs URL, category, price, name
+  - Final summary: total input, successfully mapped, filtered out, categories found
+- src/real-endpoints.ts: Threads verbose flag from config → getBazaarEndpoints → bazaar calls
+  - Enhanced fallback warning: verbose shows common issues, non-verbose suggests --verbose flag
+- src/yield-agent.ts: Passes config object (includes verbose) to getRealEndpointsAsEndpoints
+- Taskfile.yml: Added study:stats:verbose task for debugging Bazaar discovery
+Output format: Structured debug logs show API response → filtering decisions → final summary
+Impact: Zero performance cost when disabled, actionable debugging info when enabled
+Files: src/bazaar-client.ts, src/bazaar-mapper.ts, src/real-endpoints.ts, src/yield-agent.ts, Taskfile.yml, progress.txt
+Next: User can run "task study:stats:verbose" to debug Bazaar discovery issues

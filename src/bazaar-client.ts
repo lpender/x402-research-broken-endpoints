@@ -42,6 +42,7 @@ export interface DiscoveryOptions {
   network?: string;
   limit?: number;
   offset?: number;
+  verbose?: boolean;
 }
 
 export class BazaarDiscoveryClient {
@@ -78,6 +79,30 @@ export class BazaarDiscoveryClient {
       // Validate response structure
       if (!data.items || !Array.isArray(data.items)) {
         throw new Error('Invalid Bazaar response: missing items array');
+      }
+
+      // Debug logging if verbose enabled
+      if (options.verbose) {
+        console.log('\n[Bazaar Debug] Raw API response structure:');
+        console.log(`  Total items: ${data.total}`);
+        console.log(`  Items returned: ${data.items.length}`);
+        console.log(`  Limit: ${data.limit}, Offset: ${data.offset}`);
+
+        // Show sample of first 3 items
+        const sampleSize = Math.min(3, data.items.length);
+        if (sampleSize > 0) {
+          console.log(`  Sample of first ${sampleSize} item(s):`);
+          for (let i = 0; i < sampleSize; i++) {
+            const item = data.items[i];
+            console.log(`    Item ${i + 1}:`);
+            console.log(`      ID: ${item.id}`);
+            console.log(`      Type: ${item.type}`);
+            console.log(`      URL: ${item.url}`);
+            console.log(`      Metadata: ${JSON.stringify(item.metadata || {}, null, 2).split('\n').join('\n      ')}`);
+            console.log(`      Accepts: ${JSON.stringify(item.accepts || [], null, 2).split('\n').join('\n      ')}`);
+          }
+        }
+        console.log('');
       }
 
       // Cache the result

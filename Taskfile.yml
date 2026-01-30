@@ -65,6 +65,11 @@ tasks:
     cmds:
       - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=15 --cycles=10 --budget=24.00 --yes {{.CLI_ARGS}}
 
+  study:stats:verbose:
+    desc: Statistical study with verbose Bazaar debug logging
+    cmds:
+      - npx tsx src/index.ts --study --real --use-bazaar --network=base --trials=15 --cycles=10 --budget=24.00 --yes --verbose {{.CLI_ARGS}}
+
   study:stats:publication:
     desc: Publication-grade study (25 trials, 20 cycles, ~$100, p<0.01)
     cmds:

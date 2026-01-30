@@ -173,6 +173,7 @@ export async function getRealEndpointsAsEndpoints(
   options?: {
     useBazaar?: boolean;
     bazaarClient?: any; // BazaarDiscoveryClient
+    config?: { verbose?: boolean };
   }
 ): Promise<Array<{
   url: string;
@@ -180,14 +181,27 @@ export async function getRealEndpointsAsEndpoints(
   category: string;
   priceUsdc: number;
 }>> {
+  const verbose = options?.config?.verbose || false;
+
   // Try Bazaar discovery if enabled
   if (options?.useBazaar && options?.bazaarClient) {
-    const bazaarEndpoints = await getBazaarEndpoints(options.bazaarClient, network);
+    const bazaarEndpoints = await getBazaarEndpoints(options.bazaarClient, network, verbose);
     if (bazaarEndpoints.length > 0) {
       console.log(`[Bazaar] Using ${bazaarEndpoints.length} discovered endpoints`);
       return bazaarEndpoints.map(toEndpoint);
     }
-    console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
+
+    // Enhanced fallback warning
+    if (verbose) {
+      console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
+      console.warn('[Bazaar] Common issues:');
+      console.warn('  - No endpoints match the network filter (check payment requirements)');
+      console.warn('  - No endpoints match category keywords (pool/whale/sentiment)');
+      console.warn('  - Bazaar API returned no items for this network');
+    } else {
+      console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
+      console.warn('[Bazaar] Tip: Run with --verbose flag for detailed debugging information');
+    }
   }
 
   // Fallback to static registry
@@ -197,7 +211,7 @@ export async function getRealEndpointsAsEndpoints(
 /**
  * Query Bazaar and transform to RealEndpoint array
  */
-async function getBazaarEndpoints(bazaarClient: any, network: Network): Promise<RealEndpoint[]> {
+async function getBazaarEndpoints(bazaarClient: any, network: Network, verbose?: boolean): Promise<RealEndpoint[]> {
   try {
     const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
 
@@ -205,11 +219,12 @@ async function getBazaarEndpoints(bazaarClient: any, network: Network): Promise<
     const response = await bazaarClient.discoverResources({
       type: 'http',
       limit: 100,
-      network: network === 'base' ? 'eip155:8453' : undefined
+      network: network === 'base' ? 'eip155:8453' : undefined,
+      verbose
     });
 
     // Transform to RealEndpoint format
-    return mapBazaarToRealEndpoints(response.items, network);
+    return mapBazaarToRealEndpoints(response.items, network, verbose);
   } catch (error) {
     console.warn(`[Bazaar] Failed to fetch endpoints: ${error instanceof Error ? error.message : String(error)}`);
     return [];
