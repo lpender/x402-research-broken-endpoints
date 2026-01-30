@@ -8,11 +8,13 @@ import {
   type Allocation,
   type OptimizationResult,
   type AggregatedData,
+  type DiscoveryStageResult,
 } from "./types.js";
 import { queryEndpoint } from "./x402-client.js";
 import { checkEndpointReliability } from "./zauth-client.js";
 import { MOCK_ENDPOINTS } from "./endpoints.js";
 import { getRealEndpointsAsEndpoints } from "./real-endpoints.js";
+import { testPrepaymentBatch } from "./prepayment-tester.js";
 
 type AgentMode = "no-zauth" | "with-zauth";
 type EndpointSource = "mock" | "real";
@@ -66,6 +68,44 @@ export class YieldOptimizerAgent {
       ) as Promise<Endpoint[]>;
     }
     return MOCK_ENDPOINTS;
+  }
+
+  /**
+   * Stage 1: Discovery & 402 Prepayment Analysis
+   *
+   * Discovers endpoints from Bazaar and tests which ones require 402 prepayment.
+   * Returns statistics about 402 implementation across discovered endpoints.
+   */
+  async runDiscoveryStage(): Promise<DiscoveryStageResult> {
+    console.log("\n[Discovery] Getting endpoints from Bazaar...");
+
+    // Get endpoints from configured source
+    const endpoints = await this.getEndpoints();
+
+    console.log(`[Discovery] Testing ${endpoints.length} endpoints for 402 prepayment...\n`);
+
+    // Test each endpoint for 402 prepayment (raw HTTP, no payment)
+    const tests = await testPrepaymentBatch(
+      endpoints.map(e => e.url),
+      5, // concurrency
+      5000 // timeout ms
+    );
+
+    // Calculate statistics
+    const total = tests.length;
+    const requires402 = tests.filter(t => t.requires402).length;
+    const openAccess = tests.filter(t => !t.requires402 && !t.error && t.status > 0).length;
+    const failures = tests.filter(t => t.error || t.status === 0).length;
+    const percentage402 = total > 0 ? (requires402 / total) * 100 : 0;
+
+    return {
+      total,
+      requires402,
+      openAccess,
+      failures,
+      percentage402,
+      details: tests,
+    };
   }
 
   async runOptimizationCycle(): Promise<OptimizationResult> {

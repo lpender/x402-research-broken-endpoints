@@ -5,18 +5,8 @@ import {
   validateConfig,
   validateRealModeConfig,
   type Config,
-  type IterationResult,
-  type ExperimentMode,
   type Network,
 } from "./config.js";
-import { MOCK_ENDPOINTS, selectRandomEndpoint } from "./endpoints.js";
-import { createX402Client, queryEndpoint } from "./x402-client.js";
-import { createZauthClient, checkEndpointReliability } from "./zauth-client.js";
-import { MetricsCollector } from "./metrics.js";
-import {
-  printOpportunitySizing,
-  DEFAULT_OPPORTUNITY_PARAMS,
-} from "./opportunity.js";
 import { runScientificStudy } from "./study.js";
 import { printFullReport, exportRawDataCsv, exportSummaryJson, generateMarkdownReport } from "./report.js";
 import { YieldOptimizerAgent } from "./yield-agent.js";
@@ -265,176 +255,10 @@ async function confirmRealModeSpend(params: {
   });
 }
 
-async function runIteration(
-  iteration: number,
-  mode: ExperimentMode,
-  config: Config,
-  x402Client: Awaited<ReturnType<typeof createX402Client>>,
-  zauthClient: Awaited<ReturnType<typeof createZauthClient>>
-): Promise<IterationResult> {
-  const endpoint = selectRandomEndpoint(MOCK_ENDPOINTS);
-  const timestamp = new Date();
-
-  // Default result structure
-  const result: IterationResult = {
-    iteration,
-    timestamp,
-    endpoint: endpoint.url,
-    mode,
-    zauthChecked: false,
-    zauthScore: null,
-    zauthSkipped: false,
-    skipReason: null,
-    paymentAttempted: false,
-    paymentSucceeded: false,
-    responseValid: false,
-    burnUsdc: 0,
-    spentUsdc: 0,
-    latencyMs: 0,
-    errorMessage: null,
-  };
-
-  // Step 1: If with-zauth mode, check reliability first
-  if (mode === "with-zauth") {
-    const zauthResult = await checkEndpointReliability(zauthClient, endpoint);
-    result.zauthChecked = zauthResult.checked;
-    result.zauthScore = zauthResult.score;
-
-    if (zauthResult.shouldSkip) {
-      result.zauthSkipped = true;
-      result.skipReason = zauthResult.skipReason;
-      result.latencyMs = zauthResult.latencyMs;
-      // In real mode, we'd pay for the zauth check (~$0.005)
-      // In mock mode, it's free
-      if (config.mode !== "mock") {
-        result.spentUsdc = 0.005; // zauth check cost
-      }
-      return result;
-    }
-  }
-
-  // Step 2: Query the endpoint (with payment)
-  result.paymentAttempted = true;
-  const queryResult = await queryEndpoint(x402Client, endpoint, config);
-
-  result.paymentSucceeded = queryResult.paymentMade;
-  result.responseValid = queryResult.responseValid;
-  result.latencyMs = queryResult.latencyMs;
-  result.errorMessage = queryResult.error || null;
-
-  // Calculate spend and burn
-  if (queryResult.paymentMade) {
-    result.spentUsdc = endpoint.priceUsdc;
-
-    // Burn = money spent on invalid responses
-    if (!queryResult.responseValid) {
-      result.burnUsdc = endpoint.priceUsdc;
-    }
-  }
-
-  // Add zauth check cost if applicable
-  if (mode === "with-zauth" && config.mode !== "mock") {
-    result.spentUsdc += 0.005;
-  }
-
-  return result;
-}
-
-async function runExperiment(config: Config): Promise<void> {
-  console.log("\n" + "=".repeat(60));
-  console.log("ZAUTH X402 BURN REDUCTION EXPERIMENT");
-  console.log("=".repeat(60));
-  console.log(`Mode: ${config.mode}`);
-  console.log(`Iterations: ${config.iterations}`);
-  console.log(`Delay: ${config.delayMs}ms`);
-  console.log(`Max Spend: $${config.maxUsdcSpend}`);
-  if (config.mode === "mock") {
-    console.log(`Mock Failure Rate: ${(config.mockFailureRate * 100).toFixed(0)}%`);
-  }
-  console.log("=".repeat(60) + "\n");
-
-  // Initialize clients
-  console.log("Initializing clients...");
-  const x402Client = await createX402Client(config);
-  const zauthClient = await createZauthClient(config);
-  console.log("Clients initialized.\n");
-
-  const metrics = new MetricsCollector(config);
-
-  // Determine which modes to run
-  let modesToRun: ExperimentMode[];
-  if (config.mode === "mock") {
-    // In mock mode, run both scenarios for comparison
-    modesToRun = ["no-zauth", "with-zauth"];
-  } else {
-    modesToRun = [config.mode];
-  }
-
-  const iterationsPerMode = Math.floor(config.iterations / modesToRun.length);
-
-  for (const mode of modesToRun) {
-    console.log(`\n--- Running ${mode} mode (${iterationsPerMode} iterations) ---\n`);
-
-    for (let i = 0; i < iterationsPerMode; i++) {
-      // Check spend limit
-      if (metrics.isSpendLimitReached()) {
-        console.log(
-          `\nSpend limit reached ($${config.maxUsdcSpend}). Stopping.`
-        );
-        break;
-      }
-
-      const result = await runIteration(
-        i + 1,
-        mode,
-        config,
-        x402Client,
-        zauthClient
-      );
-      metrics.addResult(result);
-
-      // Progress indicator (every 10 iterations if not verbose)
-      if (!config.verbose && (i + 1) % 10 === 0) {
-        const spent = metrics.getTotalSpent();
-        process.stdout.write(
-          `\rProgress: ${i + 1}/${iterationsPerMode} | Spent: $${spent.toFixed(4)}`
-        );
-      }
-
-      // Delay between iterations
-      if (i < iterationsPerMode - 1) {
-        await sleep(config.delayMs);
-      }
-    }
-
-    console.log("\n");
-  }
-
-  // Print results
-  metrics.printSummaryTable();
-
-  // Export to CSV
-  await metrics.exportToCsv();
-
-  // Calculate and print opportunity sizing
-  const results = metrics.getResults();
-  const noZauthResults = results.filter((r) => r.mode === "no-zauth");
-  const experimentBurnRate =
-    noZauthResults.length > 0
-      ? noZauthResults.reduce((sum, r) => sum + r.burnUsdc, 0) /
-        noZauthResults.reduce((sum, r) => sum + r.spentUsdc, 0)
-      : undefined;
-
-  printOpportunitySizing(DEFAULT_OPPORTUNITY_PARAMS, experimentBurnRate);
-
-  console.log("\n" + "=".repeat(60));
-  console.log("EXPERIMENT COMPLETE");
-  console.log("=".repeat(60) + "\n");
-}
 
 // Parse CLI arguments
 interface CliArgs {
-  mode: 'study' | 'experiment' | 'agent' | 'balance';
+  mode: 'study' | 'agent' | 'balance';
   trials?: number;
   cycles?: number;
   seed?: number;
@@ -445,11 +269,12 @@ interface CliArgs {
   balance?: boolean;
   agentMode?: 'no-zauth' | 'with-zauth';
   network: Network;
+  stage?: number;
 }
 
 function parseCliArgs(): CliArgs {
   const args = process.argv.slice(2);
-  const result: CliArgs = { mode: 'experiment', network: 'base' };
+  const result: CliArgs = { mode: 'study', network: 'base' };
 
   for (const arg of args) {
     if (arg === '--study') {
@@ -467,6 +292,8 @@ function parseCliArgs(): CliArgs {
       if (mode === 'no-zauth' || mode === 'with-zauth') {
         result.agentMode = mode;
       }
+    } else if (arg.startsWith('--stage=')) {
+      result.stage = parseInt(arg.split('=')[1], 10);
     } else if (arg.startsWith('--network=')) {
       const network = arg.split('=')[1];
       if (network === 'base' || network === 'solana') {
@@ -501,7 +328,8 @@ USAGE:
 
 OPTIONS:
   --study              Run scientific study comparing no-zauth vs with-zauth
-  --agent              Run single yield optimization agent (debugging mode)
+  --agent              Run single yield optimization agent
+  --stage=N            Run specific stage (1=discovery, 2+=future)
   --balance            Show wallet USDC balance and exit
   --mode=MODE          Agent mode: no-zauth or with-zauth (default: with-zauth)
   --network=NETWORK    Network: base or solana (default: base)
@@ -517,33 +345,28 @@ NETWORKS:
   base                 Use Base L2 (EVM) - more x402 endpoints available
   solana               Use Solana mainnet
 
+STAGES:
+  1                    Discovery & 402 prepayment analysis (no payment required)
+  2-4                  Future stages (not yet implemented)
+
 EXAMPLES:
+  # Stage 1: Discover endpoints and test 402 implementation (mock mode)
+  npx tsx src/index.ts --agent --stage=1
+
+  # Stage 1 on Base with real Bazaar discovery
+  npx tsx src/index.ts --agent --stage=1 --real --network=base --budget=0.05
+
   # Run full scientific study (mock mode)
   npx tsx src/index.ts --study --trials=10 --cycles=50
 
   # Run study on Base with real payments ($5 budget)
   npx tsx src/index.ts --study --real --network=base --budget=5.00
 
-  # Run study on Solana with real payments
-  npx tsx src/index.ts --study --real --network=solana --budget=5.00
-
   # Show wallet USDC balance on Base
   npx tsx src/index.ts --balance --network=base
 
-  # Show wallet USDC balance on Solana
-  npx tsx src/index.ts --balance --network=solana
-
-  # Run quick test study
-  npx tsx src/index.ts --study --trials=2 --cycles=5
-
-  # Run single agent in with-zauth mode (debugging)
+  # Run single agent in with-zauth mode (full optimization)
   npx tsx src/index.ts --agent --mode=with-zauth --cycles=5
-
-  # Run study with reproducible seed
-  npx tsx src/index.ts --study --seed=12345
-
-  # Run original experiment (legacy mode)
-  npx tsx src/index.ts
 `);
 }
 
@@ -579,12 +402,92 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
-    // Handle --agent mode (debugging)
+    // Handle --agent mode
     if (cliArgs.mode === 'agent') {
+      const stage = cliArgs.stage ?? undefined;
       const agentMode = cliArgs.agentMode ?? 'with-zauth';
       const cycles = cliArgs.cycles ?? 5;
       const seed = cliArgs.seed ?? Date.now();
+      const network = cliArgs.network;
+      const mockMode = !cliArgs.real;
 
+      // Stage 1: Discovery & 402 Prepayment Analysis
+      if (stage === 1) {
+        console.log("\n" + "=".repeat(60));
+        console.log("STAGE 1: DISCOVERY & 402 PREPAYMENT ANALYSIS");
+        console.log("=".repeat(60));
+        console.log(`Network: ${network.toUpperCase()}`);
+        console.log(`Mode: ${mockMode ? 'MOCK' : 'REAL'}`);
+        console.log("=".repeat(60) + "\n");
+
+        // Load config
+        let config: Config;
+        if (mockMode) {
+          config = {
+            evmPrivateKey: 'mock',
+            baseRpcUrl: 'mock',
+            solanaPrivateKey: 'mock',
+            solanaRpcUrl: 'mock',
+            mode: 'mock',
+            iterations: 1,
+            delayMs: 0,
+            maxUsdcSpend: 999999,
+            mockFailureRate: 0.3,
+            zauthDirectoryUrl: 'mock',
+            zauthCheckUrl: 'mock',
+            bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
+            bazaarCacheTtl: 3600000,
+            outputDir: 'results',
+            verbose: true,
+          };
+        } else {
+          config = loadConfig();
+          validateConfig(config, network);
+        }
+
+        // Initialize Bazaar client for real mode
+        let bazaarClient: any = undefined;
+        const endpointSource: 'mock' | 'real' = mockMode ? 'mock' : 'real';
+
+        if (!mockMode) {
+          const { BazaarDiscoveryClient } = await import('./bazaar-client.js');
+          bazaarClient = new BazaarDiscoveryClient(
+            config.bazaarUrl,
+            config.bazaarCacheTtl
+          );
+        }
+
+        // Create agent
+        const agent = new YieldOptimizerAgent(
+          'no-zauth', // Mode doesn't matter for discovery
+          config,
+          null as any, // No x402 client needed for discovery
+          undefined,
+          endpointSource,
+          network,
+          bazaarClient
+        );
+
+        // Run discovery stage
+        const result = await agent.runDiscoveryStage();
+
+        // Print report
+        const { printDiscoveryReport, exportDiscoveryJson, printDetailedResults } = await import('./discovery-report.js');
+        printDiscoveryReport(result, network);
+
+        // Print detailed results if verbose
+        if (config.verbose) {
+          printDetailedResults(result);
+        }
+
+        // Export to JSON
+        const jsonPath = await exportDiscoveryJson(result, network);
+        console.log(`\nResults exported to: ${jsonPath}\n`);
+
+        return;
+      }
+
+      // Non-stage mode: regular agent debugging
       console.log("\n" + "=".repeat(60));
       console.log("YIELD OPTIMIZER AGENT - DEBUG MODE");
       console.log("=".repeat(60));
@@ -876,21 +779,6 @@ async function main(): Promise<void> {
 
       return;
     }
-
-    // Legacy experiment mode
-    const config = loadConfig();
-    validateConfig(config);
-
-    // Safety warning for non-mock modes
-    if (config.mode !== "mock") {
-      console.log("\n⚠️  WARNING: Running in REAL mode!");
-      console.log("This will spend actual USDC on x402 payments.");
-      console.log(`Max spend limit: $${config.maxUsdcSpend}`);
-      console.log("Press Ctrl+C within 5 seconds to abort...\n");
-      await sleep(5000);
-    }
-
-    await runExperiment(config);
   } catch (error) {
     console.error(
       "\nError:",

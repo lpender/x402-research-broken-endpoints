@@ -101,3 +101,20 @@ export interface StudyConfig {
   network?: "base" | "solana"; // Network for real mode (default: base)
   bazaarClient?: any; // BazaarDiscoveryClient instance (optional)
 }
+
+export interface PrepaymentTestResult {
+  url: string;
+  requires402: boolean;
+  status: number;
+  headers: Record<string, string>;
+  error?: string;
+}
+
+export interface DiscoveryStageResult {
+  total: number;
+  requires402: number;
+  openAccess: number;
+  failures: number;
+  percentage402: number;
+  details: PrepaymentTestResult[];
+}

@@ -525,3 +525,27 @@ Testing:
 Impact: Users get immediate feedback if Bazaar is unavailable, no silent fallbacks masking issues
 Files: src/real-endpoints.ts, src/bazaar-client.ts, src/config.ts, src/yield-agent.ts, src/index.ts, progress.txt
 Next: Update documentation to reflect Bazaar-only approach
+
+--- Stage 1: Discovery & 402 Prepayment Analysis ---
+Task: Implemented Stage 1 - Discovery & 402 Prepayment Analysis
+PRD reference: Stage-based refactor for yield optimization (see plan details)
+Approach: Refactor to explicit stages, Stage 1 tests endpoints for 402 status
+Key decisions:
+- Stage 1 = free (no x402 payments, just HTTP requests to test 402 status)
+- Removed legacy experiment code (runIteration, runExperiment functions ~165 lines)
+- Added --stage=1 CLI flag for agent mode
+- Report shows: total endpoints, 402 percentage, open access, failures
+Files created:
+- src/prepayment-tester.ts: testPrepayment(), testPrepaymentBatch() for 402 testing
+- src/discovery-report.ts: printDiscoveryReport(), exportDiscoveryJson(), printDetailedResults()
+Files modified:
+- src/types.ts: Added PrepaymentTestResult, DiscoveryStageResult interfaces
+- src/yield-agent.ts: Added runDiscoveryStage() method, imports prepayment tester
+- src/index.ts: Removed runIteration/runExperiment legacy code, added --stage=1 support, updated help text
+Results:
+- Mock test shows 5 endpoints tested, 0 require 402 (all failures as expected for mock URLs)
+- Report format clean: shows network, query type, statistics, conclusion, next stage
+- JSON export working: results/discovery_<timestamp>.json
+- TypeScript compiles without errors (npx tsc --noEmit passes)
+Next: Stage 2 (query with payment, validate response quality)
+Cost: Stage 1 = $0 (HTTP only), Stage 2+ will require budget
