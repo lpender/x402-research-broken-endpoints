@@ -764,3 +764,11 @@ Format: YYYY-MM-DDTHH-MM-SS_stage1_{network} (e.g., 2026-01-30T12-26-33_stage1_b
 Timezone: EST/EDT via America/New_York (automatic DST handling)
 Files: src/stage1-output.ts
 Notes: Applied to Stage 1 results only; future stages will need similar updates
+
+2026-01-30 12:32 - Increase Bazaar API retry resilience
+Task: Extend retry logic to handle extended rate limits
+Changes: maxConsecutiveErrors: 3 → 11 in src/bazaar-client.ts
+Backoff: Exponential from 2s to 2048s (2^1 through 2^11)
+Files: src/bazaar-client.ts
+Reasoning: Prevent premature failure when Bazaar API rate limits for extended periods
+Total potential wait: ~4094s across all retry attempts
