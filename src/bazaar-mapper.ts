@@ -39,6 +39,11 @@ export function mapBazaarToRealEndpoints(
   }
 
   for (const resource of resources) {
+    // Skip resources without accepts array
+    if (!resource.accepts || resource.accepts.length === 0) {
+      continue;
+    }
+
     // Filter by network
     if (!matchesNetwork(resource, network, verbose)) {
       continue;
@@ -48,21 +53,24 @@ export function mapBazaarToRealEndpoints(
     const category = classifyCategory(resource, verbose);
     if (!category) {
       if (!verbose) {
-        console.log(`[Bazaar] Skipping unclassified endpoint: ${resource.url}`);
+        const url = resource.accepts[0]?.resource || '(unknown)';
+        console.log(`[Bazaar] Skipping unclassified endpoint: ${url}`);
       }
       continue;
     }
 
-    // Extract pricing
-    const price = extractPriceUsdc(resource.accepts || []);
+    // Extract URL and pricing from first accepts entry
+    const firstAccept = resource.accepts[0];
+    const url = firstAccept.resource;
+    const price = extractPriceUsdc(resource.accepts);
 
     // Build endpoint
     const endpoint = {
-      url: resource.url,
-      name: extractName(resource),
+      url,
+      name: extractName(firstAccept),
       category,
       price,
-      metadata: resource.metadata
+      metadata: { description: firstAccept.description }
     };
     endpoints.push(endpoint);
 
@@ -95,12 +103,19 @@ export function mapBazaarToRealEndpoints(
  * Classify endpoint category based on keywords
  */
 function classifyCategory(resource: BazaarResource, verbose?: boolean): 'pool' | 'whale' | 'sentiment' | null {
-  const text = [
-    resource.url,
-    resource.metadata?.name || '',
-    resource.metadata?.description || '',
-    resource.metadata?.category || ''
-  ].join(' ').toLowerCase();
+  // Extract URL and description from first accepts entry
+  const firstAccept = resource.accepts?.[0];
+  if (!firstAccept) {
+    if (verbose) {
+      console.log(`[Bazaar Debug] Category classification failed: No accepts array\n`);
+    }
+    return null;
+  }
+
+  const url = firstAccept.resource || '';
+  const description = firstAccept.description || '';
+
+  const text = [url, description].join(' ').toLowerCase();
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some(kw => text.includes(kw))) {
@@ -110,10 +125,8 @@ function classifyCategory(resource: BazaarResource, verbose?: boolean): 'pool' |
 
   // Classification failed - log details if verbose
   if (verbose) {
-    console.log(`[Bazaar Debug] Category classification failed for: ${resource.url}`);
-    console.log(`  Name: ${resource.metadata?.name || '(none)'}`);
-    console.log(`  Description: ${resource.metadata?.description || '(none)'}`);
-    console.log(`  Category: ${resource.metadata?.category || '(none)'}`);
+    console.log(`[Bazaar Debug] Category classification failed for: ${url}`);
+    console.log(`  Description: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}`);
     console.log(`  Combined text checked: "${text.substring(0, 150)}${text.length > 150 ? '...' : ''}"\n`);
   }
 
@@ -128,8 +141,10 @@ function matchesNetwork(resource: BazaarResource, network: 'base' | 'solana', ve
 
   for (const requirement of accepts) {
     if (network === 'base') {
-      // Check for Base chain IDs (EIP-155 format)
-      if (requirement.network === 'eip155:8453' || requirement.network === 'eip155:84532') {
+      // Check for Base network string or EIP-155 chain IDs
+      if (requirement.network === 'base' ||
+          requirement.network === 'eip155:8453' ||
+          requirement.network === 'eip155:84532') {
         return true;
       }
       // Check for Base USDC contract address
@@ -151,14 +166,15 @@ function matchesNetwork(resource: BazaarResource, network: 'base' | 'solana', ve
 
   // Network filter rejected - log details if verbose
   if (verbose) {
-    console.log(`[Bazaar Debug] Network filter rejected: ${resource.url}`);
+    const url = resource.accepts?.[0]?.resource || '(unknown)';
+    console.log(`[Bazaar Debug] Network filter rejected: ${url}`);
     console.log(`  Required network: ${network}`);
     console.log(`  Payment requirements:`);
     if (accepts.length === 0) {
       console.log(`    (none)`);
     } else {
       accepts.forEach((req, idx) => {
-        console.log(`    [${idx}] scheme: ${req.scheme}, network: ${req.network || '(none)'}, asset: ${req.asset || '(none)'}`);
+        console.log(`    [${idx}] resource: ${req.resource}, scheme: ${req.scheme}, network: ${req.network || '(none)'}, asset: ${req.asset || '(none)'}`);
       });
     }
     console.log('');
@@ -199,14 +215,10 @@ function extractPriceUsdc(accepts: BazaarPaymentRequirement[]): number {
 /**
  * Extract endpoint display name
  */
-function extractName(resource: BazaarResource): string {
-  if (resource.metadata?.name) {
-    return resource.metadata.name;
-  }
-
-  // Fallback: derive from URL
+function extractName(accept: BazaarPaymentRequirement): string {
+  // Derive from URL
   try {
-    const url = new URL(resource.url);
+    const url = new URL(accept.resource);
     const path = url.pathname.split('/').filter(p => p).pop() || 'endpoint';
     return path.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   } catch {

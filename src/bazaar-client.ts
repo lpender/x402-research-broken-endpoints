@@ -8,28 +8,28 @@
 export interface BazaarPaymentRequirement {
   scheme: string;
   network?: string;
-  amount?: string;
   asset?: string;
+  amount?: string; // Payment amount in atomic units
+  resource: string; // The actual endpoint URL
+  description?: string; // Description of what the endpoint does
+  payTo?: string;
+  maxAmountRequired?: string;
+  maxTimeoutSeconds?: number;
+  mimeType?: string;
+  extra?: any;
+  outputSchema?: any;
 }
 
 export interface BazaarResource {
-  id: string;
   type: string;
-  url: string;
-  metadata?: {
-    name?: string;
-    description?: string;
-    category?: string;
-    [key: string]: any;
-  };
-  accepts?: BazaarPaymentRequirement[];
+  accepts: BazaarPaymentRequirement[];
 }
 
 export interface BazaarResponse {
   items: BazaarResource[];
-  total: number;
-  limit: number;
-  offset: number;
+  total?: number; // Optional - may not be returned by API
+  limit?: number; // Optional - may not be returned by API
+  offset?: number; // Optional - may not be returned by API
 }
 
 interface CachedResponse {
@@ -95,7 +95,7 @@ export class BazaarDiscoveryClient {
         timestamp: Date.now()
       });
 
-      console.log(`[Bazaar] Discovered ${data.items.length} resources (total: ${data.total})`);
+      console.log(`[Bazaar] Discovered ${data.items.length} resources`);
       return data;
 
     } catch (error) {
@@ -152,9 +152,9 @@ export class BazaarDiscoveryClient {
    */
   private logResponseStructure(data: BazaarResponse, source: 'fresh' | 'cached'): void {
     console.log(`\n[Bazaar Debug] Raw API response structure (${source}):`);
-    console.log(`  Total items: ${data.total}`);
+    console.log(`  Total items: ${data.total ?? '(not provided)'}`);
     console.log(`  Items returned: ${data.items.length}`);
-    console.log(`  Limit: ${data.limit}, Offset: ${data.offset}`);
+    console.log(`  Limit: ${data.limit ?? '(not provided)'}, Offset: ${data.offset ?? '(not provided)'}`);
 
     // Show sample of first 3 items
     const sampleSize = Math.min(3, data.items.length);
@@ -163,11 +163,15 @@ export class BazaarDiscoveryClient {
       for (let i = 0; i < sampleSize; i++) {
         const item = data.items[i];
         console.log(`    Item ${i + 1}:`);
-        console.log(`      ID: ${item.id}`);
         console.log(`      Type: ${item.type}`);
-        console.log(`      URL: ${item.url}`);
-        console.log(`      Metadata: ${JSON.stringify(item.metadata || {}, null, 2).split('\n').join('\n      ')}`);
-        console.log(`      Accepts: ${JSON.stringify(item.accepts || [], null, 2).split('\n').join('\n      ')}`);
+        console.log(`      Accepts (${item.accepts.length} payment option(s)):`);
+        for (let j = 0; j < Math.min(1, item.accepts.length); j++) {
+          const accept = item.accepts[j];
+          console.log(`        [${j}] Resource: ${accept.resource}`);
+          console.log(`            Description: ${accept.description?.substring(0, 100)}...`);
+          console.log(`            Network: ${accept.network}, Asset: ${accept.asset}`);
+          console.log(`            Scheme: ${accept.scheme}, PayTo: ${accept.payTo}`);
+        }
       }
     }
     console.log('');

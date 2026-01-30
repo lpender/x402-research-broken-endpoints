@@ -479,3 +479,22 @@ Issue: Cache hits didn't show raw API response structure, making it hard to debu
 Fix: Extracted logResponseStructure() helper method, called for both cache hits and fresh fetches
 Impact: Verbose mode now shows full response structure regardless of cache status, revealing malformed resources
 Files: src/bazaar-client.ts, progress.txt
+
+Task: Fixed Bazaar integration - corrected API response structure
+Issue: Bazaar discovery returned 100 resources but all failed with "undefined" URLs and missing metadata
+Root cause: Actual Bazaar API structure differs from expected schema - URLs in accepts[0].resource not resource.url
+Fixes applied:
+- Updated BazaarResource interface: removed id/url/metadata, kept type + accepts array
+- Updated BazaarPaymentRequirement: added resource (URL), description, payTo, maxAmountRequired, etc.
+- Updated BazaarResponse: made total/limit/offset optional (API doesn't return them)
+- Updated mapper classifyCategory(): extracts URL/description from accepts[0] instead of resource.url/metadata
+- Updated mapper matchesNetwork(): added "base" string match (API returns "base" not just "eip155:8453")
+- Updated mapper extractName(): takes BazaarPaymentRequirement, derives name from resource URL
+- Updated logging: shows resource URLs correctly, first payment option per item
+Results:
+- Successfully discovered 100 resources from Bazaar API
+- Successfully mapped 25+ endpoints across all categories (pool/whale/sentiment)
+- Network filtering works (matches "base" and "eip155:8453")
+- Category classification works (keyword matching on URL + description)
+- Price extraction works ($0.01 default, can extract from maxAmountRequired)
+Files: src/bazaar-client.ts, src/bazaar-mapper.ts, progress.txt
