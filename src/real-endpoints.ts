@@ -21,129 +21,37 @@ export interface RealEndpoint {
 }
 
 /**
- * Registry of real x402-enabled endpoints
- *
- * Base (EVM) endpoints: Elsa x402 API
- * Solana endpoints: TBD - fewer x402 endpoints currently available
+ * Error thrown when Bazaar endpoint discovery fails
  */
-export const REAL_ENDPOINTS: RealEndpoint[] = [
-  // ============================================
-  // BASE (EVM) ENDPOINTS - Elsa x402 API
-  // ============================================
-
-  // Pool/Yield data endpoints
-  {
-    url: "https://x402-api.heyelsa.ai/api/get_yield_suggestions",
-    name: "Elsa Yield Suggestions",
-    category: "pool",
-    price: 0.02,
-    priceUsdc: 0.02,
-    x402Enabled: true,
-    network: "base",
-  },
-  {
-    url: "https://x402-api.heyelsa.ai/api/analyze_wallet",
-    name: "Elsa Wallet Analysis",
-    category: "whale",
-    price: 0.01,
-    priceUsdc: 0.01,
-    x402Enabled: true,
-    network: "base",
-  },
-  {
-    url: "https://x402-api.heyelsa.ai/api/get_token_price",
-    name: "Elsa Token Price",
-    category: "sentiment",
-    price: 0.002,
-    priceUsdc: 0.002,
-    x402Enabled: true,
-    network: "base",
-  },
-
-  // ============================================
-  // SOLANA ENDPOINTS - Placeholder/TBD
-  // ============================================
-
-  // Pool data endpoints (placeholder - update when real endpoints available)
-  {
-    url: "https://api.defi-data.io/v1/pools",
-    name: "DeFi Data Pool Analytics",
-    category: "pool",
-    price: 0.01,
-    priceUsdc: 0.01,
-    x402Enabled: true,
-    network: "solana",
-  },
-
-  // Whale tracking endpoints (placeholder)
-  {
-    url: "https://api.whale-tracker.io/v1/movements",
-    name: "Whale Movement Tracker",
-    category: "whale",
-    price: 0.02,
-    priceUsdc: 0.02,
-    x402Enabled: true,
-    network: "solana",
-  },
-
-  // Sentiment endpoints (placeholder)
-  {
-    url: "https://api.crypto-sentiment.io/v1/analysis",
-    name: "Crypto Sentiment Analysis",
-    category: "sentiment",
-    price: 0.015,
-    priceUsdc: 0.015,
-    x402Enabled: true,
-    network: "solana",
-  },
-];
-
-/**
- * Get endpoints by category for a specific network
- */
-export function getEndpointsByCategory(
-  category: EndpointCategory,
-  network: Network = "base"
-): RealEndpoint[] {
-  return REAL_ENDPOINTS.filter(
-    (e) => e.category === category && e.x402Enabled && e.network === network
-  );
-}
-
-/**
- * Get all x402-enabled endpoints for a specific network
- */
-export function getEnabledEndpoints(network: Network = "base"): RealEndpoint[] {
-  return REAL_ENDPOINTS.filter((e) => e.x402Enabled && e.network === network);
-}
-
-/**
- * Get endpoints for a specific network (alias for getEnabledEndpoints)
- */
-export function getEndpointsForNetwork(network: Network): RealEndpoint[] {
-  return getEnabledEndpoints(network);
-}
-
-/**
- * Get a single endpoint by category for a specific network (first available)
- */
-export function getEndpointForCategory(
-  category: EndpointCategory,
-  network: Network = "base"
-): RealEndpoint | undefined {
-  return REAL_ENDPOINTS.find(
-    (e) => e.category === category && e.x402Enabled && e.network === network
-  );
+export class BazaarDiscoveryError extends Error {
+  constructor(
+    message: string,
+    public readonly diagnostics?: {
+      network: Network;
+      itemsReturned: number;
+      verbose: boolean;
+    }
+  ) {
+    super(message);
+    this.name = 'BazaarDiscoveryError';
+  }
 }
 
 /**
  * Estimate total cost for a study cycle (one request per category)
+ * Calculates based on provided endpoints array.
  */
-export function estimateCycleCost(network: Network = "base"): number {
+export function estimateCycleCost(network: Network = "base", endpoints?: RealEndpoint[]): number {
+  // If no endpoints provided, return rough estimate
+  if (!endpoints || endpoints.length === 0) {
+    // Rough estimate: $0.01 per request, 3 categories
+    return 0.03;
+  }
+
   const categories: EndpointCategory[] = ["pool", "whale", "sentiment"];
   return categories.reduce((sum, cat) => {
-    const endpoint = getEndpointForCategory(cat, network);
-    return sum + (endpoint?.priceUsdc ?? 0);
+    const endpoint = endpoints.find(e => e.category === cat);
+    return sum + (endpoint?.priceUsdc ?? endpoint?.price ?? 0.01);
   }, 0);
 }
 
@@ -166,67 +74,55 @@ export function toEndpoint(real: RealEndpoint): {
 
 /**
  * Get all real endpoints as Endpoint type for a specific network (for agent compatibility)
- * Supports Bazaar discovery when enabled.
+ * Uses Bazaar discovery exclusively - no fallback to static registry.
+ * Throws BazaarDiscoveryError if no endpoints are discovered.
  */
 export async function getRealEndpointsAsEndpoints(
-  network: Network = "base",
-  options?: {
-    useBazaar?: boolean;
-    bazaarClient?: any; // BazaarDiscoveryClient
-    config?: { verbose?: boolean };
-  }
+  network: Network,
+  bazaarClient: any, // BazaarDiscoveryClient (required)
+  config?: { verbose?: boolean }
 ): Promise<Array<{
   url: string;
   name: string;
   category: string;
   priceUsdc: number;
 }>> {
-  const verbose = options?.config?.verbose || false;
+  const verbose = config?.verbose || false;
 
-  // Try Bazaar discovery if enabled
-  if (options?.useBazaar && options?.bazaarClient) {
-    const bazaarEndpoints = await getBazaarEndpoints(options.bazaarClient, network, verbose);
-    if (bazaarEndpoints.length > 0) {
-      console.log(`[Bazaar] Using ${bazaarEndpoints.length} discovered endpoints`);
-      return bazaarEndpoints.map(toEndpoint);
-    }
+  // Query Bazaar for endpoints
+  const bazaarEndpoints = await getBazaarEndpoints(bazaarClient, network, verbose);
 
-    // Enhanced fallback warning
-    if (verbose) {
-      console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
-      console.warn('[Bazaar] Common issues:');
-      console.warn('  - No endpoints match the network filter (check payment requirements)');
-      console.warn('  - No endpoints match category keywords (pool/whale/sentiment)');
-      console.warn('  - Bazaar API returned no items for this network');
-    } else {
-      console.warn('[Bazaar] Discovery returned no endpoints, falling back to static registry');
-      console.warn('[Bazaar] Tip: Run with --verbose flag for detailed debugging information');
-    }
+  // Validate we got endpoints
+  if (bazaarEndpoints.length === 0) {
+    throw new BazaarDiscoveryError(
+      `Bazaar discovery returned no endpoints for network: ${network}`,
+      {
+        network,
+        itemsReturned: 0,
+        verbose
+      }
+    );
   }
 
-  // Fallback to static registry
-  return getEnabledEndpoints(network).map(toEndpoint);
+  console.log(`[Bazaar] Using ${bazaarEndpoints.length} discovered endpoints`);
+  return bazaarEndpoints.map(toEndpoint);
 }
 
 /**
  * Query Bazaar and transform to RealEndpoint array
+ * Errors propagate to caller for proper error context
  */
 async function getBazaarEndpoints(bazaarClient: any, network: Network, verbose?: boolean): Promise<RealEndpoint[]> {
-  try {
-    const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
+  const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
 
-    // Query Bazaar API
-    const response = await bazaarClient.discoverResources({
-      type: 'http',
-      limit: 100,
-      network: network === 'base' ? 'eip155:8453' : undefined,
-      verbose
-    });
+  // Query Bazaar API (errors propagate)
+  const response = await bazaarClient.discoverResources({
+    type: 'http',
+    limit: 100,
+    network: network === 'base' ? 'eip155:8453' : undefined,
+    verbose
+  });
 
-    // Transform to RealEndpoint format
-    return mapBazaarToRealEndpoints(response.items, network, verbose);
-  } catch (error) {
-    console.warn(`[Bazaar] Failed to fetch endpoints: ${error instanceof Error ? error.message : String(error)}`);
-    return [];
-  }
+  // Transform to RealEndpoint format
+  return mapBazaarToRealEndpoints(response.items, network, verbose);
 }

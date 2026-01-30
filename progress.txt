@@ -498,3 +498,30 @@ Results:
 - Category classification works (keyword matching on URL + description)
 - Price extraction works ($0.01 default, can extract from maxAmountRequired)
 Files: src/bazaar-client.ts, src/bazaar-mapper.ts, progress.txt
+
+--- Remove Static Fallback, Focus on Bazaar ---
+Task: Implemented exclusive Bazaar discovery with no static fallback
+Motivation: Silent fallbacks hide configuration issues, users don't know if Bazaar worked
+Approach: Fail fast with clear errors instead of falling back to static registry
+Key changes:
+1. Removed static REAL_ENDPOINTS array (6 hardcoded endpoints deleted)
+2. Removed helper functions: getEndpointsByCategory, getEnabledEndpoints, getEndpointsForNetwork, getEndpointForCategory
+3. Added BazaarDiscoveryError class with diagnostic info (network, itemsReturned, verbose flag)
+4. Refactored getRealEndpointsAsEndpoints(): bazaarClient now required param, throws BazaarDiscoveryError if 0 endpoints
+5. Fixed bazaar-client.ts: removed try/catch that returned empty result, errors now propagate
+6. Removed useBazaar flag from Config interface, CLI parsing, and environment variables
+7. Updated YieldOptimizerAgent: always requires bazaarClient in real mode, throws error if missing
+8. Updated CLI: always creates BazaarDiscoveryClient in real mode, added error handling with troubleshooting guide
+9. Updated estimateCycleCost(): accepts optional endpoints array, returns rough estimate if none provided
+Behavior changes:
+- Real mode: ALWAYS uses Bazaar (no conditional), fails explicitly if Bazaar returns 0 endpoints
+- Mock mode: unchanged (uses MOCK_ENDPOINTS, no Bazaar calls)
+- Error messages: clear diagnostics (network, items returned, troubleshooting steps)
+Testing:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Mock mode study works (--study --trials=1 --cycles=2)
+- Agent debug mode works (--agent --mode=with-zauth --cycles=1)
+- No references to REAL_ENDPOINTS, useBazaar, or removed helper functions remain
+Impact: Users get immediate feedback if Bazaar is unavailable, no silent fallbacks masking issues
+Files: src/real-endpoints.ts, src/bazaar-client.ts, src/config.ts, src/yield-agent.ts, src/index.ts, progress.txt
+Next: Update documentation to reflect Bazaar-only approach

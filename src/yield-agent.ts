@@ -56,11 +56,14 @@ export class YieldOptimizerAgent {
    */
   private async getEndpoints(): Promise<Endpoint[]> {
     if (this.endpointSource === "real") {
-      return getRealEndpointsAsEndpoints(this.network, {
-        useBazaar: this.config.useBazaar,
-        bazaarClient: this.bazaarClient,
-        config: this.config
-      }) as Promise<Endpoint[]>;
+      if (!this.bazaarClient) {
+        throw new Error("BazaarDiscoveryClient required for real mode");
+      }
+      return getRealEndpointsAsEndpoints(
+        this.network,
+        this.bazaarClient,
+        this.config
+      ) as Promise<Endpoint[]>;
     }
     return MOCK_ENDPOINTS;
   }

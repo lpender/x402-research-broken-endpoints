@@ -22,7 +22,7 @@ import { printFullReport, exportRawDataCsv, exportSummaryJson, generateMarkdownR
 import { YieldOptimizerAgent } from "./yield-agent.js";
 import { createMockX402Client } from "./x402-client.js";
 import { createMockZauthClient } from "./zauth-client.js";
-import { estimateCycleCost } from "./real-endpoints.js";
+import { estimateCycleCost, BazaarDiscoveryError } from "./real-endpoints.js";
 import * as readline from "readline";
 
 async function sleep(ms: number): Promise<void> {
@@ -606,7 +606,6 @@ async function main(): Promise<void> {
         mockFailureRate: 0.3,
         zauthDirectoryUrl: 'mock',
         zauthCheckUrl: 'mock',
-        useBazaar: false,
         bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
         bazaarCacheTtl: 3600000,
         outputDir: 'results',
@@ -764,7 +763,6 @@ async function main(): Promise<void> {
           mockFailureRate: 0.3,
           zauthDirectoryUrl: 'mock',
           zauthCheckUrl: 'mock',
-          useBazaar: false,
           bazaarUrl: 'https://api.cdp.coinbase.com/platform/v2/x402',
           bazaarCacheTtl: 3600000,
           outputDir: 'results',
@@ -806,9 +804,9 @@ async function main(): Promise<void> {
         }
       }
 
-      // Initialize Bazaar client if enabled
+      // Initialize Bazaar client for real mode
       let bazaarClient: any = undefined;
-      if (baseConfig.useBazaar) {
+      if (!mockMode) {
         const { BazaarDiscoveryClient } = await import('./bazaar-client.js');
         bazaarClient = new BazaarDiscoveryClient(
           baseConfig.bazaarUrl,
@@ -831,7 +829,27 @@ async function main(): Promise<void> {
       };
 
       console.log("Running scientific study...\n");
-      const results = await runScientificStudy(studyConfig, baseConfig, bazaarClient);
+
+      let results;
+      try {
+        results = await runScientificStudy(studyConfig, baseConfig, bazaarClient);
+      } catch (error) {
+        if (error instanceof BazaarDiscoveryError) {
+          console.error("\n❌ Bazaar endpoint discovery failed:");
+          console.error(`   ${error.message}`);
+          if (error.diagnostics) {
+            console.error(`   Network: ${error.diagnostics.network}`);
+            console.error(`   Items returned: ${error.diagnostics.itemsReturned}`);
+          }
+          console.error("\nTroubleshooting:");
+          console.error("  - Check network connectivity");
+          console.error("  - Verify BAZAAR_URL configuration");
+          console.error("  - Run with --verbose for detailed logs");
+          console.error("  - Ensure Bazaar has endpoints for your network");
+          process.exit(1);
+        }
+        throw error;
+      }
 
       // Print results to console
       console.log("\n");

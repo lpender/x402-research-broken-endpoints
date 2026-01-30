@@ -55,6 +55,7 @@ export class BazaarDiscoveryClient {
 
   /**
    * Discover x402 resources from Bazaar with caching
+   * Errors propagate to caller for proper error handling
    */
   async discoverResources(options: DiscoveryOptions = {}): Promise<BazaarResponse> {
     const cacheKey = this.getCacheKey(options);
@@ -68,41 +69,34 @@ export class BazaarDiscoveryClient {
       return cached.data;
     }
 
-    try {
-      const url = this.buildUrl(options);
-      console.log(`[Bazaar] Querying: ${url}`);
+    const url = this.buildUrl(options);
+    console.log(`[Bazaar] Querying: ${url}`);
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Bazaar API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json() as BazaarResponse;
-
-      // Validate response structure
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error('Invalid Bazaar response: missing items array');
-      }
-
-      // Debug logging if verbose enabled
-      if (options.verbose) {
-        this.logResponseStructure(data, 'fresh');
-      }
-
-      // Cache the result
-      this.cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      console.log(`[Bazaar] Discovered ${data.items.length} resources`);
-      return data;
-
-    } catch (error) {
-      console.warn(`[Bazaar] Discovery failed: ${error instanceof Error ? error.message : String(error)}`);
-      // Return empty result on error - caller will fallback to static registry
-      return { items: [], total: 0, limit: options.limit || 100, offset: options.offset || 0 };
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Bazaar API error: ${response.status} ${response.statusText}`);
     }
+
+    const data = await response.json() as BazaarResponse;
+
+    // Validate response structure
+    if (!data.items || !Array.isArray(data.items)) {
+      throw new Error('Invalid Bazaar response: missing items array');
+    }
+
+    // Debug logging if verbose enabled
+    if (options.verbose) {
+      this.logResponseStructure(data, 'fresh');
+    }
+
+    // Cache the result
+    this.cache.set(cacheKey, {
+      data,
+      timestamp: Date.now()
+    });
+
+    console.log(`[Bazaar] Discovered ${data.items.length} resources`);
+    return data;
   }
 
   /**
