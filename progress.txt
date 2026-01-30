@@ -732,3 +732,27 @@ Updated bazaar-rate-limit-issue.md:
 - Revised impact section: 65% dataset vs 35% missing
 - Updated proposed solutions to request documentation of limit parameter
 Files: src/bazaar-client.ts, bazaar-rate-limit-issue.md, progress.txt
+
+Task: Identified root cause - inefficient client-side filtering
+Key insight: We're fetching 8,000 endpoints to find 496 relevant ones (6% efficiency)
+Problem analysis:
+- Bazaar API supports network filtering (server-side) ✅
+- Bazaar API does NOT support keyword/description filtering ❌
+- Must download all endpoints, filter client-side for DeFi keywords
+- 94% of fetched data is immediately discarded
+- Wastes bandwidth, rate limits, and processing time
+Better solution: Server-side filtering via query parameters
+- Proposed: ?keywords=pool,yield,liquidity or ?search=defi
+- Would return only relevant endpoints (100% efficiency)
+- Reduces pages needed from 8+ to 1-2
+- Scales better as Bazaar grows (12K → 50K+ endpoints)
+- Benefits all API users, not just research use cases
+Updated bazaar-rate-limit-issue.md:
+- Prioritized server-side filtering as Option A (strongly preferred)
+- Documented current 6% efficiency problem with concrete numbers
+- Showed keyword lists used for client-side filtering
+- Explained why this is better than just increasing rate limits
+- Provided example API usage with keywords parameter
+- Reframed issue from "rate limit too strict" to "missing filtering capability"
+Next: Submit GitHub issue emphasizing server-side filtering as primary solution
+Files: bazaar-rate-limit-issue.md, progress.txt

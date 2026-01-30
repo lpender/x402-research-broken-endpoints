@@ -58,16 +58,44 @@ After page 4, the rate limit becomes impossible to bypass even with long delays.
 
 ### Expected Behavior
 
-**Option A** (Preferred): Higher rate limits for research/batch queries
-- Allow fetching ~10-20 pages before rate limiting
+**Option A** (Strongly Preferred): Server-side filtering via search/keyword parameters
+
+Add query parameters to filter endpoints server-side:
+```
+?search=defi
+?keywords=pool,yield,liquidity
+?category=finance
+?description_contains=swap
+```
+
+**Why this is better:**
+- **Efficiency**: Currently fetching 8,000 endpoints to find 496 relevant ones (6% efficiency)
+- **Bandwidth**: Reduces data transfer by 94%
+- **Rate limits**: Fewer pages needed (1-2 pages vs 8+ pages)
+- **User experience**: Results are immediately relevant
+- **Scalability**: Works better as Bazaar grows (12K → 50K+ endpoints)
+
+**Example use case:**
+```bash
+# Instead of fetching all 12,348 endpoints and filtering client-side:
+GET /resources?type=http&network=eip155:8453&limit=1000
+# Returns 8,000 endpoints, we discard 7,504 (94%)
+
+# With server-side filtering:
+GET /resources?type=http&network=eip155:8453&keywords=pool,yield,liquidity&limit=1000
+# Returns only ~500 DeFi-relevant endpoints (100% efficiency)
+```
+
+**Option B**: Higher rate limits for research/batch queries
+- Allow fetching ~13-15 pages per session (enough for complete dataset)
 - Or provide a batch endpoint that returns more results per request
 
-**Option B**: Clear documentation of rate limits
+**Option C**: Clear documentation
+- Document the `limit` parameter maximum (discovered to be 1000)
 - Document exact rate limit policy (requests per minute/hour)
 - Provide guidance on acceptable pagination strategies
-- Suggest optimal delay between requests
 
-**Option C**: Alternative access method
+**Option D**: Alternative access methods
 - Bulk data export API for research purposes
 - Webhook/stream for endpoint updates
 
@@ -87,24 +115,53 @@ With `limit=1000` optimization, we can fetch **8,000 endpoints (65% of total)** 
 - Use case: Academic research on x402 protocol adoption
 
 **Observations:**
-- The `network` filter appears to work server-side (all fetched endpoints matched Base)
+- The `network` filter works server-side (all fetched endpoints matched Base) ✅
 - The `total: 12348` field represents global total across all networks (not filtered)
-- With `limit=1000`, we fetch 8,000 endpoints → 496 DeFi-relevant endpoints (pool/whale/sentiment)
+- **No server-side filtering by description/category exists** ❌
+  - Must fetch 8,000 endpoints to find 496 DeFi-relevant ones (6% efficiency)
+  - 94% of fetched data is discarded after client-side filtering
+  - Wastes bandwidth, rate limits, and processing time
 - Rate limit appears to be based on **request count** (not data size), so higher limits are more efficient
 - Exponential backoff retries occasionally succeed, but eventually rate limit persists
 
+**Client-side filtering keywords used:**
+- Pool: `['pool', 'yield', 'liquidity', 'vault', 'tvl', 'apy', 'lending', 'borrow']`
+- Whale: `['whale', 'movement', 'wallet', 'tracker', 'flow', 'holder', 'transfer']`
+- Sentiment: `['sentiment', 'analysis', 'price', 'signal', 'market', 'trend', 'indicator']`
+
+These could be passed as query parameters instead: `?keywords=pool,yield,liquidity`
+
 ### Proposed Solutions
 
-1. **Document the `limit` parameter maximum** (discovered to be 1000 through testing)
-2. **Increase rate limit** to allow ~13-15 pages per session (enough for complete dataset with `limit=1000`)
-3. **Provide filtered totals** in response (e.g., "12,348 total, 2,456 match your filter")
-4. **Add batch export** endpoint for research/analytics use cases
-5. **Document rate limit policy** (requests per minute/hour, cooldown periods)
+**Priority 1: Server-side filtering (solves root cause)**
+1. **Add search/keyword query parameters** for filtering by description/category
+   - Example: `?keywords=pool,yield,swap` or `?search=defi`
+   - Reduces client-side filtering from 8,000 → 496 endpoints (6% efficiency)
+   - Eliminates wasted bandwidth and rate limit consumption
+   - Scales better as Bazaar grows beyond 12K endpoints
+
+**Priority 2: Documentation improvements**
+2. **Document the `limit` parameter maximum** (discovered to be 1000 through testing)
+3. **Document rate limit policy** (requests per minute/hour, cooldown periods, thresholds)
+4. **Provide filtered totals** in response (e.g., "12,348 total, 496 match filters")
+
+**Priority 3: Rate limit adjustments (if server-side filtering not feasible)**
+5. **Increase rate limit** to allow ~13-15 pages per session (enough for complete dataset with `limit=1000`)
+6. **Add batch export** endpoint for research/analytics use cases
 
 ### Request
 
-Could you either:
-- Increase rate limits for legitimate research use cases, or
-- Provide guidance on the correct pagination strategy to fetch complete datasets
+**Primary ask:** Add server-side filtering by keywords/description/category
+- This solves the root cause (fetching irrelevant data)
+- Improves efficiency from 6% to 100%
+- Benefits all users, not just research use cases
+- Makes the API more powerful and user-friendly
 
-Thank you for maintaining this valuable API for the x402 ecosystem!
+**Alternative:** If server-side filtering isn't feasible:
+- Increase rate limits to allow fetching the complete dataset
+- Document the `limit=1000` maximum and rate limit policies
+
+**Context:**
+We're conducting academic research on x402 protocol adoption and need to analyze DeFi-specific endpoints. Currently fetching 8,000 endpoints to find 496 relevant ones is inefficient and hits rate limits unnecessarily.
+
+Thank you for maintaining this valuable API for the x402 ecosystem! Happy to discuss implementation details or provide more context on the use case.
