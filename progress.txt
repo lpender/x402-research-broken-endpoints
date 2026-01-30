@@ -693,3 +693,42 @@ Decision: Accept 400-endpoint limitation for now
 - Sufficient sample size for Stage 1 discovery analysis
 - Can revisit if Bazaar team increases rate limits
 Files: src/bazaar-client.ts, bazaar-rate-limit-issue.md, progress.txt
+
+Task: Discovered undocumented limit parameter maximum
+Question: What is the maximum value for the limit parameter?
+Method: Binary search testing with curl requests
+Testing sequence:
+- limit=1000: ✅ Returns 1000 items (HTTP 200)
+- limit=2000: ❌ Returns 0 items
+- limit=1500: ❌ Returns 0 items
+- limit=1100: ❌ Timeout
+- limit=1001: ❌ Timeout
+Result: limit=1000 is the undocumented maximum
+- API documentation does not specify maximum limit value
+- Values above 1000 cause timeouts or return empty responses
+- This finding significantly improves pagination efficiency
+
+Task: Implement limit=1000 for maximum efficiency
+Updated src/bazaar-client.ts: Changed default limit from 100 → 500 → 1000
+Testing with limit=1000:
+- Successfully fetched 8 pages (8,000 endpoints) before rate limit
+- Page 5 required retries but succeeded (exponential backoff worked)
+- Page 9 hit permanent rate limit after all retries
+Results comparison:
+| Metric | limit=100 | limit=500 | limit=1000 |
+|--------|-----------|-----------|------------|
+| Pages fetched | 4 | 5 | 8 |
+| Total endpoints | 400 | 2,500 | 8,000 |
+| DeFi relevant | 45 | 133 | 496 |
+| Pool endpoints | 7 | 21 | 84 |
+| Whale endpoints | 9 | 36 | 144 |
+| Sentiment endpoints | 29 | 76 | 268 |
+| % of full dataset | 3% | 20% | 65% |
+Improvement: 20x more endpoints, 11x more DeFi-relevant endpoints
+Impact: 65% of Bazaar dataset now accessible for Stage 1 analysis
+Updated bazaar-rate-limit-issue.md:
+- Documented limit=1000 discovery (undocumented in API)
+- Updated pagination results to show 8 successful pages
+- Revised impact section: 65% dataset vs 35% missing
+- Updated proposed solutions to request documentation of limit parameter
+Files: src/bazaar-client.ts, bazaar-rate-limit-issue.md, progress.txt

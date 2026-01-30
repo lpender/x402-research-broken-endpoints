@@ -149,7 +149,7 @@ export class BazaarDiscoveryClient {
 
     const allItems: BazaarResource[] = [];
     let offset = 0;
-    const limit = options.limit || 100;
+    const limit = options.limit || 1000; // Use 1000 (API maximum) to minimize page count
     let total: number | undefined;
     const delayMs = 1000; // 1 second delay between requests to avoid rate limiting
     const maxPages = 200; // Safety limit to prevent infinite loops

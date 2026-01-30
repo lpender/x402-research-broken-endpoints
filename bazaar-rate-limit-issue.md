@@ -2,7 +2,7 @@
 
 ## Description
 
-We're conducting research on x402 payment protocol adoption and need to analyze the full dataset of Base-compatible endpoints from the Bazaar API. However, strict rate limiting prevents us from fetching more than 4 pages (~400 endpoints) out of the reported 12,348 total endpoints.
+We're conducting research on x402 payment protocol adoption and need to analyze the full dataset of Base-compatible endpoints from the Bazaar API. However, strict rate limiting prevents us from fetching the complete dataset of 12,348 total endpoints.
 
 ### Use Case
 Scientific study measuring:
@@ -24,17 +24,30 @@ GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources
 {
   "type": "http",
   "network": "eip155:8453",
-  "limit": 100,
+  "limit": 1000,
   "offset": 0
 }
 ```
 
-**Pagination Attempt:**
-- Page 1 (offset 0): ✅ Success (100 items)
-- Page 2 (offset 100): ✅ Success (100 items)
-- Page 3 (offset 200): ✅ Success (100 items)
-- Page 4 (offset 400): ✅ Success (100 items)
-- Page 5 (offset 400): ❌ `429 Too Many Requests`
+**Important Discovery: Undocumented `limit` Maximum**
+
+The API documentation does not specify a maximum value for the `limit` parameter. Through systematic testing, we discovered:
+- ✅ `limit=1000`: Works (returns 1,000 items)
+- ❌ `limit=1001+`: Fails (timeouts or returns 0 items)
+- **Maximum supported: `limit=1000`**
+
+Using the maximum limit significantly improves efficiency: only **13 pages** needed for 12,348 endpoints vs **124 pages** with default `limit=100`.
+
+**Pagination Attempt (with limit=1000):**
+- Page 1 (offset 0): ✅ Success (1,000 items)
+- Page 2 (offset 1000): ✅ Success (1,000 items)
+- Page 3 (offset 2000): ✅ Success (1,000 items)
+- Page 4 (offset 3000): ✅ Success (1,000 items)
+- Page 5 (offset 4000): ✅ Success after retries (1,000 items)
+- Page 6 (offset 5000): ✅ Success (1,000 items)
+- Page 7 (offset 6000): ✅ Success (1,000 items)
+- Page 8 (offset 7000): ✅ Success (1,000 items)
+- Page 9 (offset 8000): ❌ `429 Too Many Requests` (even after exponential backoff)
 
 **Mitigation attempts (all failed):**
 - 1 second delay between requests
@@ -60,11 +73,11 @@ After page 4, the rate limit becomes impossible to bypass even with long delays.
 
 ### Impact
 
-Current limitation affects:
-- **Sample bias**: 400 endpoints is only 3% of total, may not be representative
-- **Research validity**: Statistical analysis requires larger samples
-- **Completeness**: Cannot determine true percentage of 402 adoption
-- **Network filtering**: Unknown if more Base endpoints exist beyond offset 400
+With `limit=1000` optimization, we can fetch **8,000 endpoints (65% of total)** before hitting rate limits. However:
+- **Incomplete dataset**: Still missing 35% of endpoints (4,348 endpoints)
+- **Research validity**: Cannot analyze the complete population
+- **Statistical accuracy**: Results based on 65% sample may not represent full distribution
+- **Unknown bias**: No way to know if remaining 35% differs significantly from fetched data
 
 ### Technical Details
 
@@ -74,17 +87,19 @@ Current limitation affects:
 - Use case: Academic research on x402 protocol adoption
 
 **Observations:**
-- The `network` filter appears to work server-side (all 400 fetched endpoints matched Base)
-- The `total: 12348` field seems to represent global total, not filtered total
-- 400 endpoints filtered to 45 DeFi-relevant endpoints (pool/whale/sentiment categories)
+- The `network` filter appears to work server-side (all fetched endpoints matched Base)
+- The `total: 12348` field represents global total across all networks (not filtered)
+- With `limit=1000`, we fetch 8,000 endpoints → 496 DeFi-relevant endpoints (pool/whale/sentiment)
+- Rate limit appears to be based on **request count** (not data size), so higher limits are more efficient
+- Exponential backoff retries occasionally succeed, but eventually rate limit persists
 
 ### Proposed Solutions
 
-1. **Increase rate limit** to allow 10-20 pages per session
-2. **Increase page size** from max 100 to 500 or 1000 items per request
+1. **Document the `limit` parameter maximum** (discovered to be 1000 through testing)
+2. **Increase rate limit** to allow ~13-15 pages per session (enough for complete dataset with `limit=1000`)
 3. **Provide filtered totals** in response (e.g., "12,348 total, 2,456 match your filter")
 4. **Add batch export** endpoint for research/analytics use cases
-5. **Document current limits** so developers know what to expect
+5. **Document rate limit policy** (requests per minute/hour, cooldown periods)
 
 ### Request
 
