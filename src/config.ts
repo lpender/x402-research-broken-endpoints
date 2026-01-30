@@ -39,6 +39,7 @@ export interface Endpoint {
   name: string;
   category: string;
   priceUsdc: number;
+  metadata?: any;
   // For mock endpoints
   mockFailureRate?: number;
   mockLatencyMs?: number;

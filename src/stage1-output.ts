@@ -510,10 +510,14 @@ export async function exportStage1Results(
     total: result.details.length,
     endpoints: result.details.map(detail => ({
       url: detail.url,
+      name: detail.name,
+      category: detail.category,
+      price: detail.price,
       requires402: detail.requires402,
       status: detail.status,
       headers: detail.headers,
-      error: detail.error || null
+      error: detail.error || null,
+      metadata: detail.metadata || {}
     }))
   };
   await fs.writeFile(

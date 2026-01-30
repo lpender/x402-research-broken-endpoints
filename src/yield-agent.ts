@@ -146,11 +146,23 @@ export class YieldOptimizerAgent {
       5000 // timeout ms
     );
 
+    // Merge endpoint metadata with test results
+    const enrichedTests = tests.map(test => {
+      const endpoint = endpoints.find(e => e.url === test.url);
+      return {
+        ...test,
+        name: endpoint?.name || 'Unknown',
+        category: endpoint?.category || 'unknown',
+        price: endpoint?.priceUsdc || 0.01,
+        metadata: endpoint?.metadata
+      };
+    });
+
     // Calculate statistics
-    const total = tests.length;
-    const requires402 = tests.filter(t => t.requires402).length;
-    const openAccess = tests.filter(t => !t.requires402 && !t.error && t.status > 0).length;
-    const failures = tests.filter(t => t.error || t.status === 0).length;
+    const total = enrichedTests.length;
+    const requires402 = enrichedTests.filter(t => t.requires402).length;
+    const openAccess = enrichedTests.filter(t => !t.requires402 && !t.error && t.status > 0).length;
+    const failures = enrichedTests.filter(t => t.error || t.status === 0).length;
     const percentage402 = total > 0 ? (requires402 / total) * 100 : 0;
 
     return {
@@ -159,7 +171,7 @@ export class YieldOptimizerAgent {
       openAccess,
       failures,
       percentage402,
-      details: tests,
+      details: enrichedTests,
     };
   }
 

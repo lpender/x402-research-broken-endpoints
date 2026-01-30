@@ -107,7 +107,18 @@ export function mapBazaarToRealEndpoints(
       name: extractName(firstAccept),
       category,
       price,
-      metadata: { description: firstAccept.description }
+      metadata: {
+        description: firstAccept.description,
+        payTo: firstAccept.payTo,
+        scheme: firstAccept.scheme,
+        network: firstAccept.network,
+        asset: firstAccept.asset,
+        maxAmountRequired: firstAccept.maxAmountRequired,
+        maxTimeoutSeconds: firstAccept.maxTimeoutSeconds,
+        mimeType: firstAccept.mimeType,
+        outputSchema: firstAccept.outputSchema,
+        extra: firstAccept.extra
+      }
     };
     endpoints.push(endpoint);
 

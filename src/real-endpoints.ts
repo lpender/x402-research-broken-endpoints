@@ -63,12 +63,14 @@ export function toEndpoint(real: RealEndpoint): {
   name: string;
   category: string;
   priceUsdc: number;
+  metadata?: any;
 } {
   return {
     url: real.url,
     name: real.name,
     category: real.category,
     priceUsdc: real.priceUsdc ?? real.price,
+    metadata: real.metadata,
   };
 }
 

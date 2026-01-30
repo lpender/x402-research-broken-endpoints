@@ -110,11 +110,18 @@ export interface PrepaymentTestResult {
   error?: string;
 }
 
+export interface EnrichedPrepaymentTestResult extends PrepaymentTestResult {
+  name: string;
+  category: string;
+  price: number;
+  metadata?: any;
+}
+
 export interface DiscoveryStageResult {
   total: number;
   requires402: number;
   openAccess: number;
   failures: number;
   percentage402: number;
-  details: PrepaymentTestResult[];
+  details: EnrichedPrepaymentTestResult[];
 }
