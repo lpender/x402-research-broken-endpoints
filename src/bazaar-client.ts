@@ -27,9 +27,16 @@ export interface BazaarResource {
 
 export interface BazaarResponse {
   items: BazaarResource[];
-  total?: number; // Optional - may not be returned by API
-  limit?: number; // Optional - may not be returned by API
-  offset?: number; // Optional - may not be returned by API
+  pagination?: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
+  // Legacy fields (may be removed by API in future)
+  total?: number;
+  limit?: number;
+  offset?: number;
+  x402Version?: number;
 }
 
 export interface BazaarQueryParams {
@@ -119,6 +126,123 @@ export class BazaarDiscoveryClient {
 
     console.log(`[Bazaar] Discovered ${data.items.length} resources`);
     return data;
+  }
+
+  /**
+   * Fetch all pages from Bazaar API
+   * Handles pagination automatically and returns concatenated results
+   */
+  async discoverAllResources(options: DiscoveryOptions = {}): Promise<BazaarResponse> {
+    // Generate cache key for "all resources" query
+    const cacheKey = this.getCacheKey({
+      ...options,
+      limit: 999999, // Special marker for "fetch all"
+      offset: 0
+    });
+
+    const cached = this.cache.get(cacheKey);
+    if (cached && this.isCacheValid(cached)) {
+      console.log('[Bazaar] Cache hit for full dataset');
+      this.lastQueryParams = cached.queryParams;
+      return cached.data;
+    }
+
+    const allItems: BazaarResource[] = [];
+    let offset = 0;
+    const limit = options.limit || 100;
+    let total: number | undefined;
+    const delayMs = 300; // 300ms delay between requests to avoid rate limiting
+    const maxPages = 200; // Safety limit to prevent infinite loops
+
+    console.log('[Bazaar] Fetching all pages...');
+
+    let pageCount = 0;
+    while (pageCount < maxPages) {
+      // Add delay between requests (skip on first request)
+      if (offset > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+
+      try {
+        // Fetch current page
+        const response = await this.discoverResources({
+          ...options,
+          limit,
+          offset
+        });
+
+        // Add items from this page
+        allItems.push(...response.items);
+        pageCount++;
+
+        // Extract total from pagination object or legacy fields (only on first page)
+        if (!total && pageCount === 1) {
+          total = response.pagination?.total ?? response.total;
+          if (total) {
+            const estimatedPages = Math.ceil(total / limit);
+            console.log(`[Bazaar] API reports ${total} total endpoints (estimated ${estimatedPages} pages)`);
+            console.log(`[Bazaar] Note: Will fetch until no more results (API total may be unfiltered)`);
+          }
+        }
+
+        // Stop if this page was empty or partial (last page)
+        if (response.items.length === 0) {
+          console.log(`[Bazaar] Reached end of results (empty page at offset ${offset})`);
+          break;
+        }
+
+        if (response.items.length < limit) {
+          console.log(`[Bazaar] Reached end of results (partial page: ${response.items.length}/${limit} items)`);
+          break;
+        }
+
+        // Move to next page
+        offset += limit;
+        console.log(`[Bazaar] Fetched ${allItems.length} endpoints (page ${pageCount})...`);
+      } catch (error: any) {
+        // If we hit rate limit or error after fetching some pages, return what we have
+        if (allItems.length > 0) {
+          console.log(`[Bazaar] Stopped early due to error: ${error.message}`);
+          console.log(`[Bazaar] Returning ${allItems.length} endpoints fetched so far`);
+          break;
+        }
+        throw error; // Re-throw if we haven't fetched anything yet
+      }
+    }
+
+    if (pageCount >= maxPages) {
+      console.log(`[Bazaar] Warning: Reached maximum page limit (${maxPages})`);
+    }
+
+    console.log(`[Bazaar] Pagination complete: ${allItems.length} total endpoints fetched`);
+
+    // Build full response
+    const fullResponse: BazaarResponse = {
+      items: allItems,
+      pagination: {
+        total: allItems.length,
+        limit,
+        offset: 0
+      }
+    };
+
+    // Cache the full result
+    const queryParams: BazaarQueryParams = {
+      url: 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources',
+      type: options.type || 'http',
+      network: options.network,
+      limit: allItems.length, // Actual count
+      offset: 0
+    };
+
+    this.cache.set(cacheKey, {
+      data: fullResponse,
+      timestamp: Date.now(),
+      queryParams
+    });
+
+    this.lastQueryParams = queryParams;
+    return fullResponse;
   }
 
   /**

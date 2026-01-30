@@ -82,9 +82,8 @@ export class YieldOptimizerAgent {
 
       // Query Bazaar API
       const { mapBazaarToRealEndpoints } = await import('./bazaar-mapper.js');
-      const response = await this.bazaarClient.discoverResources({
+      const response = await this.bazaarClient.discoverAllResources({
         type: 'http',
-        limit: 100,
         network: this.network === 'base' ? 'eip155:8453' : undefined,
         verbose: this.config.verbose
       });
