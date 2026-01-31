@@ -81,6 +81,39 @@ tasks:
     cmds:
       - npx tsx src/index.ts --agent --stage=1 {{.CLI_ARGS}}
 
+  stage:2:
+    desc: Run Stage 2 - Load most recent Stage 1 results (requires --budget)
+    cmds:
+      - |
+        STAGE1_PATH=$(ls -dt results/20*_stage1_* 2>/dev/null | head -1)
+        if [ -z "$STAGE1_PATH" ]; then
+          echo "❌ No Stage 1 results found. Run 'task stage:1' first."
+          exit 1
+        fi
+        echo "📂 Loading Stage 1 results: $STAGE1_PATH"
+        npx tsx src/index.ts --agent --stage=2 --real --load-stage1="$STAGE1_PATH" {{.CLI_ARGS}}
+
+  stage:2:quick:
+    desc: Stage 2 with $0.15 budget (quick validation)
+    cmds:
+      - task: stage:2
+        vars:
+          CLI_ARGS: --budget=0.15 --yes
+
+  stage:2:small:
+    desc: Stage 2 with $0.50 budget (small test)
+    cmds:
+      - task: stage:2
+        vars:
+          CLI_ARGS: --budget=0.50 --yes
+
+  stage:2:medium:
+    desc: Stage 2 with $1.50 budget (medium test)
+    cmds:
+      - task: stage:2
+        vars:
+          CLI_ARGS: --budget=1.50 --yes
+
   # Debug commands
   agent:
     desc: Run single agent in debug mode
