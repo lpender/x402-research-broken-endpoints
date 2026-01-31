@@ -1042,3 +1042,74 @@ Output example:
 Impact: Catches funding issues immediately, saves time debugging failed queries
 Files: src/index.ts, test-endpoint.ts (new), progress.txt
 Next: User needs to add USDC to wallet before running Stage 2
+
+2026-01-31 15:30 - CRITICAL: 402 Payment Protocol Timeout Issue on Base Network
+Task: Diagnosed why all Stage 2 endpoints fail despite correct implementation
+Problem: All 402 endpoints return "Payment Required" even though:
+- Wallet has sufficient USDC ($4.67)
+- @x402/fetch library correctly implements protocol
+- Payment transactions ARE created and submitted
+- Transactions successfully confirm on-chain
+Root cause: Payment facilitator timeout race condition
+- Facilitator creates payment transaction (e.g., tx 0x8e01aace...)
+- Transaction submitted to Base network
+- Base confirmation takes 10-28 seconds
+- Facilitator timeout appears to be ~5-10 seconds
+- Error: "transaction did not confirm in time: context deadline exceeded"
+- Endpoint rejects request even though payment succeeds on-chain
+Evidence:
+- Transaction 0x8e01aace...96 confirmed successfully in block 41551053
+- FROM: 0x8f5c...e531 (facilitator address, not our wallet)
+- TO: 0x8335...2913 (USDC contract)
+- Status: SUCCESS, Gas used: 85756
+- Wallet paid 0.002 USDC to facilitator address 0xD344...1794
+- But endpoint returned: {"error":"Settlement failed","details":"...context deadline exceeded..."}
+Impact analysis:
+- Checked wallet USDC transfers: paid $0.002 per failed request
+- Money lost without receiving data
+- 100% failure rate in Stage 2 despite correct implementation
+- This is NOT a bug in our code - it's a protocol timing issue
+Technical details:
+- Base network block time: ~2 seconds per block
+- Transaction confirmation: 5-14 blocks (10-28 seconds observed)
+- Facilitator timeout: appears to be 5-10 seconds
+- Gap: Transactions confirm AFTER facilitator gives up
+- No retry/reconciliation when payment confirms late
+Solutions identified:
+1. Increase facilitator timeout (not in our control)
+2. Increase gas price to speed up confirmations (can try)
+3. Use Solana network (faster finality, <1s confirmations)
+4. Contact endpoint operators about timeout configuration
+5. Wait for @x402 protocol improvements
+Files: check-balance.ts, check-tx.ts, check-usdc-transfers.ts (diagnostic scripts), progress.txt
+Status: Implementation is correct, blocked by protocol timing issues
+Next: Investigate gas price configuration options
+
+2026-01-31 15:45 - Investigation: Gas price configuration in @x402 library
+Task: Research whether client can increase gas prices to speed up transactions
+Method: Examined @x402 TypeScript definitions and documentation
+Findings:
+- EvmClientConfig only accepts: signer, paymentRequirementsSelector, policies, networks
+- No timeout, gas price, or confirmation speed options in client API
+- PaymentPolicy only filters payment requirements, doesn't control transaction params
+- x402Client constructor has no gas or timeout parameters
+- No README documentation about performance tuning
+Architectural limitation:
+- Client signs payment intent (EIP-712 signature)
+- Facilitator creates and submits actual on-chain transaction
+- Facilitator sets gas price (not client)
+- Facilitator controls timeout (not client)
+- Client has ZERO control over transaction speed or confirmation deadline
+Conclusion: Cannot fix via gas price configuration
+- This is a protocol architecture limitation
+- Facilitator controls all transaction parameters
+- Client can only sign payment intent
+- No API exists to influence gas price or timeout
+Alternative solutions:
+1. Switch to Solana (faster finality, <1s confirmations)
+2. Contact endpoint operators (request longer timeouts)
+3. Wait for @x402 protocol improvements
+4. Attempt direct on-chain payments (skip facilitator)
+Files: 402-payment-timeout-analysis.md (comprehensive writeup), progress.txt
+Status: Gas price avenue exhausted - architectural limitation confirmed
+Recommendation: Test Solana network next (Option 1)
