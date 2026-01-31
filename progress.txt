@@ -977,5 +977,21 @@ Auto-loading logic:
 - Supports CLI_ARGS passthrough for custom flags
 Usage examples:
 - task stage:2:quick (simplest, $0.15 budget)
-- task stage:2 -- --budget=1.00 --network=solana (custom params)
+- task stage:2 -- --budget=1.00 (custom budget)
 Files: Taskfile.yml, progress.txt
+
+Task: Auto-detect network from Stage 1 path in Stage 2
+Problem: User had to re-specify network in Stage 2, but it's already in Stage 1 folder name
+Solution: Parse network from Stage 1 path automatically
+Implementation:
+- Added detectNetworkFromPath() in stage2-loader.ts
+  - Parses folder name ending (_stage1_base or _stage1_solana)
+  - Returns 'base' or 'solana' Network type
+  - Throws clear error if folder name doesn't match expected format
+- Updated Stage 2 CLI handler in index.ts
+  - Auto-detects network before showing header
+  - Shows "Network: BASE (auto-detected from Stage 1)" in output
+  - Validates if user explicitly passes --network flag (must match)
+  - Uses detected network throughout Stage 2 execution
+Impact: Cleaner UX, no need to remember which network Stage 1 used
+Files: src/stage2-loader.ts, src/index.ts, progress.txt
