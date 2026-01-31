@@ -81,7 +81,7 @@ export function generateStage2ReadMe(
   const sections: string[] = [];
 
   // Header
-  sections.push(`# Stage 2: Real Yield Optimization - Interleaved Comparison`);
+  sections.push(`# Stage 2: Trading Signal Aggregation - Interleaved Comparison`);
   sections.push('');
   sections.push(`**Network:** ${network.toUpperCase()}`);
   sections.push(`**Timestamp:** ${timestamp}`);
@@ -109,8 +109,8 @@ export function generateStage2ReadMe(
   sections.push(`| **Net Savings** | **-** | **-** | **$${comparisonSummary.totalNetSavings.toFixed(3)}** |`);
   sections.push('');
 
-  // Allocation Comparison
-  sections.push('### Allocation Decisions');
+  // Trading Recommendation Comparison
+  sections.push('### Trading Recommendations');
   sections.push('');
   sections.push(`**No-Zauth:** ${allocationComparison.noZauth.poolId} (confidence: ${(allocationComparison.noZauth.confidence * 100).toFixed(1)}%)`);
   sections.push(`**With-Zauth:** ${allocationComparison.withZauth.poolId} (confidence: ${(allocationComparison.withZauth.confidence * 100).toFixed(1)}%)`);
@@ -136,7 +136,7 @@ export function generateStage2ReadMe(
   sections.push('   - Query with **with-zauth mode** (reliability check first)');
   sections.push('   - Record per-endpoint comparison (burn savings, net savings)');
   sections.push('5. **Extract and validate data** from responses');
-  sections.push('6. **Run allocation algorithm** for both modes');
+  sections.push('6. **Run trading signal algorithm** for both modes (aggregates sentiment + technical + liquidity)');
   sections.push('7. **Compare results** and generate reports');
   sections.push('');
 
@@ -204,7 +204,7 @@ export function generateStage2ReadMe(
   sections.push(`- Whale Moves: ${noZauthResults.whaleData.length}`);
   sections.push(`- Sentiment Scores: ${noZauthResults.sentimentData.length}`);
   sections.push('');
-  sections.push(`**Allocation Decision:** ${allocationComparison.noZauth.poolId}`);
+  sections.push(`**Trading Recommendation:** ${allocationComparison.noZauth.poolId}`);
   sections.push(`**Reasoning:** ${allocationComparison.noZauth.reasoning}`);
   sections.push('');
 
@@ -221,7 +221,7 @@ export function generateStage2ReadMe(
   sections.push(`- Whale Moves: ${withZauthResults.whaleData.length}`);
   sections.push(`- Sentiment Scores: ${withZauthResults.sentimentData.length}`);
   sections.push('');
-  sections.push(`**Allocation Decision:** ${allocationComparison.withZauth.poolId}`);
+  sections.push(`**Trading Recommendation:** ${allocationComparison.withZauth.poolId}`);
   sections.push(`**Reasoning:** ${allocationComparison.withZauth.reasoning}`);
   sections.push('');
   sections.push('---');

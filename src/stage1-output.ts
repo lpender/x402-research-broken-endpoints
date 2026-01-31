@@ -115,7 +115,7 @@ export function generateStage1ReadMe(
 
 ## Executive Summary
 
-Found **${total} endpoints** relevant to DeFi yield optimization.
+Found **${total} endpoints** relevant to trading signal aggregation.
 - **${requires402} endpoints (${percentage402.toFixed(1)}%)** properly implement 402 prepayment protocol
 - **${openAccess} endpoints (${((openAccess / total) * 100).toFixed(1)}%)** allow open access or failed testing
 - **${failures} endpoints (${((failures / total) * 100).toFixed(1)}%)** test failures
@@ -250,7 +250,7 @@ sentiment: ['sentiment', 'analysis', 'price', 'signal', 'market', 'trend', 'indi
 2. Search combined text for keywords (case-insensitive)
 3. If match found → classify, else → filter out
 
-**Reasoning**: Unclassified endpoints may be valid x402 services (NFT APIs, weather data, etc.) but irrelevant to DeFi yield optimization.
+**Reasoning**: Unclassified endpoints may be valid x402 services (NFT APIs, weather data, etc.) but irrelevant to trading signal aggregation.
 
 **This Run**:
 - After category filter: ${filteringStats.afterCategoryFilter} resources

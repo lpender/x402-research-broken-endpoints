@@ -1251,3 +1251,39 @@ Verification:
 - Clearer distinction between actual money lost vs budget exhausted
 Files: src/yield-agent.ts (line 518), progress.txt
 Status: Accounting bug fixed, ready for Stage 2 re-run with correct metrics
+
+2026-01-31 17:45 - Pivot Use Case: DeFi Yield → Trading Signal Aggregator
+Task: Refactor use case to match Solana's available paid endpoints
+Motivation: Solana paid endpoints don't support DeFi yield optimization well
+- Only 5 pool endpoints (41% of paid endpoints)
+- 7 sentiment endpoints (59% of paid endpoints)
+- 0 whale endpoints require payment (all free, can't test x402 protocol)
+- Base network unusable (402 payment timeout race condition)
+Analysis of Solana endpoints (12 paid total):
+- Pool: Top Pools, Top Protocols, Yield Alpha, Pool Analysis, Defi Yield
+- Sentiment: Top Coins, Trending Altcoins, Crypto News, Technical Analysis, Correlation Matrix, Arbitrage Scanner, Gas Price
+New use case: Trading Signal Aggregator
+- Aggregate sentiment + technical + momentum signals from 7 sentiment endpoints
+- Validate liquidity from 5 pool endpoints (can you actually trade?)
+- Recommend trading opportunities based on multi-signal scoring
+- Uses ALL 12 paid endpoints (vs 5 for yield-only approach)
+Changes to scoring algorithm (src/yield-agent.ts):
+- OLD weights: APY 40%, TVL 20%, Volume 10%, Sentiment 20%, Whale 10%
+- NEW weights: Sentiment 40%, Whale 25%, Liquidity 20%, Momentum 15%
+- Reasoning: Sentiment drives price action, follow smart money, validate tradability
+Updated documentation:
+- src/stage1-output.ts: "DeFi yield optimization" → "trading signal aggregation"
+- src/stage2-output.ts: "Real Yield Optimization" → "Trading Signal Aggregation"
+- src/stage2-output.ts: "Allocation Decisions" → "Trading Recommendations"
+- src/stage2-output.ts: "Run allocation algorithm" → "Run trading signal algorithm"
+Impact:
+- Better match for Solana's paid endpoint landscape (12 endpoints vs 5)
+- More realistic agent use case (trading bots are high-value)
+- Tests x402 protocol more thoroughly (more paid endpoints)
+- Still demonstrates Zauth value (filtering broken endpoints saves money)
+Verification:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Code structure unchanged (allocation → recommendation is semantic shift)
+- Ready for Stage 2 re-run with trading signal focus
+Files: src/yield-agent.ts, src/stage1-output.ts, src/stage2-output.ts, progress.txt
+Next: Run Stage 2 on Solana with corrected accounting + trading signal focus

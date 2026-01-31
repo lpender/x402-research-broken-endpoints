@@ -317,46 +317,43 @@ export class YieldOptimizerAgent {
       };
     }
 
-    // Score each pool based on multiple factors
+    // Score each pool/token based on trading signals (prioritize sentiment + technical analysis)
     const poolScores = data.poolData.map((pool) => {
       let score = 0;
 
-      // Base score from APY (normalized to 0-1)
-      score += (pool.apy / 50) * 0.4;
-
-      // TVL score (higher TVL = lower risk)
-      const tvlScore = Math.min(pool.tvl / 100_000_000, 1) * 0.2;
-      score += tvlScore;
-
-      // Volume score (higher volume = better liquidity)
-      const volumeScore = Math.min(pool.volume24h / 10_000_000, 1) * 0.1;
-      score += volumeScore;
-
-      // IL risk penalty
-      const ilPenalty = pool.impermanentLossRisk === "low" ? 0 :
-                        pool.impermanentLossRisk === "medium" ? 0.1 : 0.2;
-      score -= ilPenalty;
-
-      // Whale activity boost
-      const whaleActivity = data.whaleData.filter((w) =>
-        w.token === pool.tokenA || w.token === pool.tokenB
-      );
-      const buySignal = whaleActivity.filter((w) => w.action === "buy")
-        .reduce((sum, w) => sum + w.significance, 0);
-      score += buySignal * 0.1;
-
-      // Sentiment boost
+      // Primary: Sentiment analysis (40% weight) - market sentiment drives price action
       const tokenSentiment = data.sentimentData.filter((s) =>
         s.token === pool.tokenA || s.token === pool.tokenB
       );
       const avgSentiment = tokenSentiment.reduce((sum, s) =>
         sum + s.score * s.confidence, 0) / (tokenSentiment.length || 1);
-      score += avgSentiment * 0.2;
+      score += avgSentiment * 0.4;
+
+      // Secondary: Whale activity (25% weight) - follow smart money
+      const whaleActivity = data.whaleData.filter((w) =>
+        w.token === pool.tokenA || w.token === pool.tokenB
+      );
+      const buySignal = whaleActivity.filter((w) => w.action === "buy")
+        .reduce((sum, w) => sum + w.significance, 0);
+      score += buySignal * 0.25;
+
+      // Tertiary: Liquidity validation (20% weight) - can you actually trade it?
+      const tvlScore = Math.min(pool.tvl / 100_000_000, 1) * 0.1;
+      const volumeScore = Math.min(pool.volume24h / 10_000_000, 1) * 0.1;
+      score += tvlScore + volumeScore;
+
+      // Momentum: APY as proxy for recent performance (15% weight)
+      score += (pool.apy / 50) * 0.15;
+
+      // IL risk penalty (relevant for trading in/out of positions)
+      const ilPenalty = pool.impermanentLossRisk === "low" ? 0 :
+                        pool.impermanentLossRisk === "medium" ? 0.05 : 0.1;
+      score -= ilPenalty;
 
       // Data quality penalty
       score *= data.dataQuality;
 
-      return { pool, score };
+      return { pool, score, avgSentiment };
     });
 
     // Select highest scoring pool
@@ -366,7 +363,7 @@ export class YieldOptimizerAgent {
     return {
       poolId: best.pool.poolId,
       percentage: 100,
-      reasoning: `Selected ${best.pool.tokenA}-${best.pool.tokenB} (APY: ${best.pool.apy.toFixed(2)}%, TVL: $${(best.pool.tvl / 1_000_000).toFixed(2)}M, Score: ${best.score.toFixed(3)})`,
+      reasoning: `Trading signal: ${best.pool.tokenA}-${best.pool.tokenB} (Sentiment: ${(best.avgSentiment * 100).toFixed(0)}%, TVL: $${(best.pool.tvl / 1_000_000).toFixed(2)}M, Strength: ${best.score.toFixed(3)})`,
     };
   }
 
