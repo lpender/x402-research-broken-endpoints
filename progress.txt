@@ -888,3 +888,78 @@ Example decoded structure:
     {"scheme": "exact", "network": "solana:5eykt4...", "amount": "2000", "asset": "EPjFWdd5...", "payTo": "4HVvnhy..."}
   ]
 }
+
+2026-01-31 - Stage 2: Real Yield Optimization with Interleaved Comparison
+Task: Implement Stage 2 with interleaved no-zauth vs with-zauth comparison
+PRD ref: Stage 2 transformation of Stage 1 endpoints into yield optimization decisions
+Approach: Interleaved comparison queries each endpoint with BOTH modes before moving to next
+Key decisions:
+- Always run BOTH modes (no --mode flag needed, automatic comparison)
+- Price-sorted querying: cheapest endpoints first to maximize comparisons within budget
+- Budget distribution: 33% pool, 33% whale, 34% sentiment
+- Shared budget pool: stops when total spend (both modes combined) approaches limit
+- Per-endpoint comparison: tracks burn savings and net savings in real-time
+Implementation:
+Files created:
+- src/stage2-validator.ts: Hybrid schema validation (Bazaar schema + pattern matching)
+  - validateResponse(): tries Bazaar schema first, falls back to common patterns
+  - Pattern matching: {success,data}, {data}, [...], {result}, {response:{data}}
+- src/stage2-mapper.ts: Field mapping & normalization for diverse response formats
+  - extractPoolData(): maps poolId/tokenA/tokenB/tvl/apy/volume/feeRate with auto-scaling
+  - extractWhaleData(): maps wallet/action/token/amount/timestamp with significance scoring
+  - extractSentimentData(): maps token/score/confidence with normalization (-1 to 1)
+  - Default field mappings handle API variations (poolId vs pool_id vs id)
+  - Normalization: APY>10 → divide by 100, confidence>1 → percentage conversion
+- src/stage2-runner.ts: Main orchestration with interleaved comparison
+  - runStage2(): coordinates entire Stage 2 execution
+  - runCategoryComparison(): sorts endpoints by price, queries both modes per endpoint
+  - extractModeResults(): aggregates data extraction and allocation per mode
+  - generateComparisonSummary(): calculates burn savings, net savings, burn reduction %
+  - generateAllocationComparison(): compares pool decisions and confidence levels
+- src/stage2-output.ts: Report generation with comprehensive folder structure
+  - createStage2OutputFolder(): timestamped folders (stage2_{network}_{timestamp}/)
+  - generateStage2ReadMe(): 500+ line methodology + comparison analysis
+  - exportStage2Results(): 6 JSON files (comparison-summary, endpoint-comparisons, allocations, no-zauth-results, with-zauth-results)
+- src/stage2-loader.ts: Load Stage 1 endpoints.json for processing
+Files modified:
+- src/types.ts: Added Stage 2 interfaces
+  - SchemaValidationResult, QueryResult, EndpointComparison
+  - ModeResults, ComparisonSummary, AllocationComparison, Stage2Result
+  - Allocation: added optional confidence and dataQuality fields
+- src/index.ts: Added Stage 2 CLI handler
+  - --stage=2 --real --budget=X --load-stage1=<path> flags
+  - Validation: requires real mode, budget, and Stage 1 path
+  - Confirmation prompt shows estimated comparisons and wallet address
+  - Summary output: comparison metrics, allocation decisions, savings analysis
+- src/yield-agent.ts: Added queryWithValidation method
+  - Queries endpoint with x402 payment
+  - Checks zauth reliability first (if with-zauth mode)
+  - Validates response schema (Bazaar or pattern matching)
+  - Returns QueryResult with success, burn, latency, validation details
+Features:
+- Interleaved comparison: fair evaluation by querying same endpoints with both modes
+- Price sorting: maximizes statistical power (more data points per dollar)
+- Budget enforcement: pre-flight checks, stops when estimate exceeds remaining budget
+- Schema validation: hybrid approach handles diverse response formats
+- Field mapping: flexible extraction from varied API structures
+- Allocation algorithm: multi-factor scoring (APY, TVL, volume, IL risk, whale activity, sentiment)
+- Comprehensive reporting: comparison summary, per-endpoint details, allocation comparison
+CLI Usage:
+npx tsx src/index.ts --agent --stage=2 --real --budget=0.50 \
+  --load-stage1=results/2026-01-30T12-30-18_stage1_base
+Output structure:
+results/YYYY-MM-DDTHH-MM-SS_stage2_{network}/
+  - README.md (methodology + comparison analysis)
+  - comparison-summary.json (high-level metrics)
+  - endpoint-comparisons.json (per-endpoint comparisons)
+  - allocations.json (both allocation decisions + comparison)
+  - no-zauth-results.json (detailed no-zauth mode results)
+  - with-zauth-results.json (detailed with-zauth mode results)
+Verification steps:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Added ~1,850 lines of new code (4 new files, 3 modified files)
+- Budget distribution verified: 0.99 = 0.33 + 0.33 + 0.34
+Files: src/stage2-validator.ts, src/stage2-mapper.ts, src/stage2-runner.ts,
+       src/stage2-output.ts, src/stage2-loader.ts, src/types.ts, src/index.ts,
+       src/yield-agent.ts, progress.txt
+Next: Run Stage 2 with low budget ($0.15) to validate interleaved flow
