@@ -995,3 +995,20 @@ Implementation:
   - Uses detected network throughout Stage 2 execution
 Impact: Cleaner UX, no need to remember which network Stage 1 used
 Files: src/stage2-loader.ts, src/index.ts, progress.txt
+
+Task: Add detailed progress logging to Stage 2 endpoint queries
+Problem: Stage 2 appeared to hang with no visibility into what it was doing
+Solution: Add real-time progress logging for each endpoint query
+Implementation:
+- Show progress counter (e.g., "1/47 Querying: Pool Analytics API")
+- Show endpoint price before querying
+- Show real-time status: "querying..." → ✓/✗ with results
+- Show spent, burn, zauth cost for each query
+- Show net savings and remaining budget after each endpoint
+Output format example:
+  [pool] 1/47 Querying: Pool Analytics API (price: $0.002)
+  [pool] 1/47   No-zauth: ✓ (spent: $0.002, burn: $0.000)
+  [pool] 1/47   With-zauth: ✓ (spent: $0.002, burn: $0.000, zauth: $0.001)
+  [pool] 1/47   Net savings: $0.000 | Budget remaining: $0.491
+Impact: User can see exactly what's happening, diagnose hangs, track budget in real-time
+Files: src/stage2-runner.ts, progress.txt
