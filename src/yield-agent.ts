@@ -515,7 +515,7 @@ export class YieldOptimizerAgent {
     // Query with x402 payment
     const paymentResult = await queryEndpoint(this.x402Client, endpointObj, this.config);
 
-    const spent = endpointObj.priceUsdc;
+    const spent = paymentResult.paymentMade ? endpointObj.priceUsdc : 0;
     const burn = paymentResult.success ? 0 : spent;
 
     if (!paymentResult.success) {

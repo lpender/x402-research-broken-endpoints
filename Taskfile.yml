@@ -164,11 +164,11 @@ tasks:
           CLI_ARGS: --budget=0.06 --yes
 
   stage:2:solana:full:
-    desc: Stage 2 Solana with $1.50 budget (full test)
+    desc: Stage 2 Solana with $.50 budget (full test)
     cmds:
       - task: stage:2:solana
         vars:
-          CLI_ARGS: --budget=1.50 --yes
+          CLI_ARGS: --budget=.50 --yes
 
   # Debug commands
   agent:

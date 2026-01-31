@@ -1228,3 +1228,26 @@ Files: progress.txt, results/2026-01-31T16-56-54_stage2_solana/
 Status: Data extraction working, but endpoint quality issues validated
 Impact: Demonstrates critical need for pre-flight health checks (Zauth improvement)
 Next: Fix accounting bug, implement pre-flight health checks
+
+2026-01-31 17:30 - FIXED: Accounting Bug - Only Count Spent When Payment Made
+Task: Fix budget accounting to only count money as spent when payment actually created
+Root cause: src/yield-agent.ts:518 assumed payment made on ALL endpoint queries
+- const spent = endpointObj.priceUsdc (advertised price, not actual spend)
+- For 429 errors: no payment created, no on-chain tx, but counted as "spent" and "burn"
+- Misleading accounting: users see inflated burn rates that don't reflect actual money lost
+Fix applied:
+- Changed line 518: const spent = paymentResult.paymentMade ? endpointObj.priceUsdc : 0
+- Now only counts money as spent if paymentResult.paymentMade === true
+- Burn calculation unchanged (depends on spent, so works correctly now)
+Impact on accounting:
+- 429 errors before payment: spent = $0, burn = $0 ✓
+- Payment made but validation failed: spent = price, burn = price ✓
+- Payment made and succeeded: spent = price, burn = $0 ✓
+- Zauth skipped endpoints: already return without querying, spent = $0 ✓
+Verification:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Logic matches PaymentResult.paymentMade semantics
+- More accurate burn rate reporting for users
+- Clearer distinction between actual money lost vs budget exhausted
+Files: src/yield-agent.ts (line 518), progress.txt
+Status: Accounting bug fixed, ready for Stage 2 re-run with correct metrics
