@@ -589,7 +589,7 @@ async function main(): Promise<void> {
         const { createRealZauthClient } = await import('./zauth-client.js');
 
         const x402Client = await createRealX402Client(config, stage2Network);
-        const zauthClient = createRealZauthClient(config);
+        const zauthClient = await createRealZauthClient(config, stage2Network);
 
         // Run Stage 2
         const startTime = Date.now();
