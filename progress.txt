@@ -1287,3 +1287,39 @@ Verification:
 - Ready for Stage 2 re-run with trading signal focus
 Files: src/yield-agent.ts, src/stage1-output.ts, src/stage2-output.ts, progress.txt
 Next: Run Stage 2 on Solana with corrected accounting + trading signal focus
+
+2026-01-31 18:00 - CRITICAL FIX: Correct paymentMade flag for pre-payment failures
+Task: Fix x402-client.ts to correctly identify when payment was NOT made
+Root cause discovered in Stage 2 results analysis:
+- With-zauth burn rate: 75% (should be much lower with Zauth)
+- 4 endpoints failed with 429 errors: Pool Analysis, Top Coins, Gas Price, Correlation Matrix
+- Error message: "Failed to create payment payload: HTTP error (429): Too Many Requests"
+- These errors happen BEFORE @x402/fetch creates payment
+- But code set paymentMade: true for ALL errors, causing incorrect accounting
+Bug in src/x402-client.ts RealX402Client.fetchEndpoint():
+- Line 140: paymentMade: true for ALL !response.ok (includes 429, 402)
+- Line 162: paymentMade: true for ALL caught errors (includes "Failed to create payment")
+- This caused 429 rate limit errors to count as "spent" money
+Fix applied:
+- Catch block: Check error message for pre-payment failure indicators
+  - "Failed to create payment" (explicit from @x402/fetch)
+  - "429" or "Too Many Requests" (rate limit before payment)
+  - "402" or "Payment Required" (prepayment protocol, no payment yet)
+  - Set paymentMade: false for these cases
+- Response check: Set paymentMade: false for 402 and 429 status codes
+Impact of fix:
+- 429 errors: Now correctly show paymentMade: false, spent: $0, burn: $0
+- 402 errors: Now correctly show paymentMade: false, spent: $0, burn: $0
+- Post-payment failures: Still show paymentMade: true, spent: price, burn: price
+- With-zauth should now show dramatically lower burn (only Zauth-missed endpoints)
+Expected Stage 2 results after fix:
+- Pool Analysis 429: NoZ burn=$0.01, WithZ burn=$0 (no payment made)
+- Top Coins 429: NoZ burn=$0.01, WithZ burn=$0
+- Gas Price 429: NoZ burn=$0.01, WithZ burn=$0
+- Correlation Matrix 429: NoZ burn=$0.005, WithZ burn=$0
+- Zauth value: If Zauth catches rate-limited endpoints, huge savings
+Verification:
+- TypeScript compilation passes (npx tsc --noEmit)
+- Ready to re-run Stage 2 and verify correct accounting
+Files: src/x402-client.ts, progress.txt
+Next: Re-run Stage 2 to verify paymentMade logic and Zauth effectiveness

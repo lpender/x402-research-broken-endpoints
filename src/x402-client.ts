@@ -135,9 +135,13 @@ class RealX402Client {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
+        // 402 and 429 are pre-payment errors (payment not made)
+        // Other 4xx/5xx errors after payment was attempted
+        const isPrePaymentFailure = response.status === 402 || response.status === 429;
+
         return {
           success: false,
-          paymentMade: true, // Payment was made but response failed
+          paymentMade: !isPrePaymentFailure,
           response: null,
           responseValid: false,
           latencyMs,
@@ -157,13 +161,23 @@ class RealX402Client {
         error: responseValid ? undefined : "Response validation failed",
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Check if error indicates payment was NOT made (pre-payment failures)
+      const isPrePaymentFailure =
+        errorMessage.includes('Failed to create payment') ||
+        errorMessage.includes('429') ||
+        errorMessage.includes('Too Many Requests') ||
+        errorMessage.includes('402') ||
+        errorMessage.includes('Payment Required');
+
       return {
         success: false,
-        paymentMade: true, // Assume payment was made even on network error
+        paymentMade: !isPrePaymentFailure, // Only true if payment actually attempted
         response: null,
         responseValid: false,
         latencyMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
       };
     }
   }
