@@ -31,6 +31,8 @@ export interface Allocation {
   poolId: string;
   percentage: number;
   reasoning: string;
+  confidence?: number;  // 0-1 confidence score
+  dataQuality?: number; // 0-1 data quality score
 }
 
 export interface AggregatedData {
@@ -157,4 +159,91 @@ export interface DiscoveryStageResult {
   failures: number;
   percentage402: number;
   details: EnrichedPrepaymentTestResult[];
+}
+
+// Stage 2 Types
+export interface SchemaValidationResult {
+  valid: boolean;
+  data: any[];
+  error?: string;
+  schemaUsed: 'bazaar' | 'pattern' | 'none';
+}
+
+export interface QueryResult {
+  endpoint: EnrichedPrepaymentTestResult;
+  success: boolean;
+  response: any;
+  validationResult: SchemaValidationResult;
+  spent: number;
+  burn: number;
+  latency: number;
+  zauthCost?: number;  // Only for with-zauth mode
+  skippedByZauth?: boolean;  // Only for with-zauth mode
+  error?: string;
+}
+
+export interface EndpointComparison {
+  endpoint: EnrichedPrepaymentTestResult;
+  noZauth: QueryResult;
+  withZauth: QueryResult;
+  burnSavings: number;  // noZauth.burn - withZauth.burn
+  netSavings: number;   // burnSavings - withZauth.zauthCost
+}
+
+export interface ModeResults {
+  allocation: Allocation;
+  totalSpent: number;
+  totalBurn: number;
+  burnRate: number;
+  zauthCost: number;  // 0 for no-zauth mode
+  queriesAttempted: number;
+  queriesFailed: number;
+  poolData: PoolData[];
+  whaleData: WhaleMove[];
+  sentimentData: SentimentScore[];
+}
+
+export interface ComparisonSummary {
+  endpointsCompared: number;
+  budgetUsed: number;
+  noZauth: {
+    totalSpent: number;
+    totalBurn: number;
+    burnRate: number;
+  };
+  withZauth: {
+    totalSpent: number;
+    totalBurn: number;
+    burnRate: number;
+    zauthCost: number;
+  };
+  totalBurnSavings: number;  // Sum of all burnSavings
+  totalNetSavings: number;   // totalBurnSavings - total zauthCost
+  burnReduction: number;     // Percentage reduction in burn
+}
+
+export interface AllocationComparison {
+  noZauth: {
+    poolId: string;
+    reasoning: string;
+    confidence: number;
+    dataQuality: number;
+  };
+  withZauth: {
+    poolId: string;
+    reasoning: string;
+    confidence: number;
+    dataQuality: number;
+  };
+  sameDecision: boolean;  // Did both modes choose same pool?
+  confidenceDelta: number;  // Difference in confidence levels
+}
+
+export interface Stage2Result {
+  noZauthResults: ModeResults;
+  withZauthResults: ModeResults;
+  endpointComparisons: EndpointComparison[];
+  comparisonSummary: ComparisonSummary;
+  allocationComparison: AllocationComparison;
+  durationSeconds: number;
 }

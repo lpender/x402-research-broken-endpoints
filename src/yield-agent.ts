@@ -9,12 +9,15 @@ import {
   type OptimizationResult,
   type AggregatedData,
   type DiscoveryStageResult,
+  type QueryResult,
+  type EnrichedPrepaymentTestResult,
 } from "./types.js";
 import { queryEndpoint } from "./x402-client.js";
 import { checkEndpointReliability } from "./zauth-client.js";
 import { MOCK_ENDPOINTS } from "./endpoints.js";
 import { getRealEndpointsAsEndpoints } from "./real-endpoints.js";
 import { testPrepaymentBatch } from "./prepayment-tester.js";
+import { validateResponse } from "./stage2-validator.js";
 
 type AgentMode = "no-zauth" | "with-zauth";
 type EndpointSource = "mock" | "real";
@@ -456,5 +459,93 @@ export class YieldOptimizerAgent {
     // Normalize to 0-1 based on amount (arbitrary scale)
     const maxWhaleAmount = 10_000_000;
     return Math.min(amount / maxWhaleAmount, 1);
+  }
+
+  /**
+   * Stage 2: Query endpoint with validation (used for interleaved comparison)
+   */
+  async queryWithValidation(
+    endpoint: EnrichedPrepaymentTestResult
+  ): Promise<QueryResult> {
+    const startTime = Date.now();
+    this.queriesAttempted++;
+
+    // Convert to Endpoint format
+    const endpointObj: Endpoint = {
+      url: endpoint.url,
+      name: endpoint.name,
+      category: endpoint.category,
+      priceUsdc: endpoint.requested402Price || endpoint.price,
+      metadata: endpoint.metadata
+    };
+
+    // Check zauth if in with-zauth mode
+    let zauthCost = 0;
+    if (this.mode === 'with-zauth' && this.zauthClient) {
+      const zauthCheck = await checkEndpointReliability(this.zauthClient, endpointObj);
+
+      zauthCost = 0.001;
+      this.zauthCost += zauthCost;
+      this.totalSpent += zauthCost;
+
+      if (zauthCheck.shouldSkip) {
+        if (this.config.verbose) {
+          console.log(`[Zauth] Skipping ${endpoint.name}: ${zauthCheck.skipReason}`);
+        }
+        return {
+          endpoint,
+          success: false,
+          response: null,
+          validationResult: {
+            valid: false,
+            data: [],
+            schemaUsed: 'none',
+            error: 'Skipped by Zauth'
+          },
+          spent: zauthCost,
+          burn: 0,
+          latency: Date.now() - startTime,
+          zauthCost,
+          skippedByZauth: true,
+          error: zauthCheck.skipReason || undefined
+        };
+      }
+    }
+
+    // Query with x402 payment
+    const paymentResult = await queryEndpoint(this.x402Client, endpointObj, this.config);
+
+    const spent = endpointObj.priceUsdc;
+    const burn = paymentResult.success ? 0 : spent;
+
+    if (!paymentResult.success) {
+      this.queriesFailed++;
+      this.totalBurn += burn;
+    }
+
+    this.totalSpent += spent;
+
+    // Validate response schema
+    const validationResult = validateResponse(
+      paymentResult.response,
+      endpoint.metadata?.outputSchema,
+      endpoint.category
+    );
+
+    if (!validationResult.valid && this.config.verbose) {
+      console.log(`[Validation] ${endpoint.name}: ${validationResult.error}`);
+    }
+
+    return {
+      endpoint,
+      success: paymentResult.success && validationResult.valid,
+      response: validationResult.data,
+      validationResult,
+      spent,
+      burn,
+      latency: Date.now() - startTime,
+      zauthCost: this.mode === 'with-zauth' ? zauthCost : undefined,
+      error: paymentResult.error || validationResult.error
+    };
   }
 }

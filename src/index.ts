@@ -270,6 +270,7 @@ interface CliArgs {
   agentMode?: 'no-zauth' | 'with-zauth';
   network: Network;
   stage?: number;
+  loadStage1?: string;
 }
 
 function parseCliArgs(): CliArgs {
@@ -313,6 +314,8 @@ function parseCliArgs(): CliArgs {
     } else if (arg === '--balance') {
       result.mode = 'balance';
       result.balance = true;
+    } else if (arg.startsWith('--load-stage1=')) {
+      result.loadStage1 = arg.split('=')[1];
     }
   }
 
@@ -488,6 +491,141 @@ async function main(): Promise<void> {
         console.log(`  - ${paths.endpointsJsonPath}\n`);
 
         return;
+      }
+
+      // Stage 2: Real Yield Optimization with Interleaved Comparison
+      if (stage === 2) {
+        console.log("\n" + "=".repeat(60));
+        console.log("STAGE 2: REAL YIELD OPTIMIZATION - INTERLEAVED COMPARISON");
+        console.log("=".repeat(60));
+        console.log(`Network: ${network.toUpperCase()}`);
+        console.log("=".repeat(60) + "\n");
+
+        // Validation
+        if (!cliArgs.real) {
+          console.error("❌ Stage 2 requires --real mode");
+          process.exit(1);
+        }
+        if (!cliArgs.budget) {
+          console.error("❌ Stage 2 requires --budget=<amount>");
+          process.exit(1);
+        }
+        if (!cliArgs.loadStage1) {
+          console.error("❌ Stage 2 requires --load-stage1=<path>");
+          process.exit(1);
+        }
+
+        // Load config and validate
+        const config = loadConfig();
+        validateRealModeConfig(config, cliArgs.budget, network);
+
+        // Load Stage 1 results
+        const { loadStage1Endpoints } = await import('./stage2-loader.js');
+        const endpoints = await loadStage1Endpoints(cliArgs.loadStage1);
+        console.log(`✓ Loaded ${endpoints.length} endpoints from Stage 1`);
+
+        // Filter to 402-enabled
+        const paymentEndpoints = endpoints.filter(e => e.requires402);
+        console.log(`✓ Filtered to ${paymentEndpoints.length} endpoints requiring payment\n`);
+
+        // Show confirmation prompt (unless --yes)
+        if (!cliArgs.yes) {
+          const walletAddress = await getWalletAddress(config, network);
+
+          // Estimate comparisons
+          const avgPrice = paymentEndpoints.reduce((sum, e) =>
+            sum + (e.requested402Price || e.price || 0.01), 0
+          ) / paymentEndpoints.length;
+          const estimatedComparisons = Math.floor(cliArgs.budget / (avgPrice * 2));
+
+          console.log("⚠️  Stage 2: Interleaved Comparison (Both Modes)");
+          console.log(`Endpoints available: ${paymentEndpoints.length} (402-enabled)`);
+          console.log(`Budget: $${cliArgs.budget.toFixed(2)} USDC`);
+          console.log(`Estimated comparisons: ~${estimatedComparisons} endpoints`);
+          console.log(`Network: ${network}`);
+          console.log(`Wallet: ${truncateWalletAddress(walletAddress)}`);
+          console.log("\nEach endpoint will be queried TWICE:");
+          console.log("  1. No-zauth mode (blind query)");
+          console.log("  2. With-zauth mode (reliability check first)");
+          console.log("\nPress 'y' to continue or any other key to cancel.");
+
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+          });
+
+          const answer = await new Promise<string>((resolve) => {
+            rl.question('', (ans) => {
+              rl.close();
+              resolve(ans);
+            });
+          });
+
+          if (answer.toLowerCase() !== 'y') {
+            console.log("Cancelled.");
+            process.exit(0);
+          }
+          console.log('');
+        }
+
+        // Initialize clients
+        const { createRealX402Client } = await import('./x402-client.js');
+        const { createRealZauthClient } = await import('./zauth-client.js');
+
+        const x402Client = await createRealX402Client(config, network);
+        const zauthClient = createRealZauthClient(config);
+
+        // Run Stage 2
+        const startTime = Date.now();
+        const { runStage2 } = await import('./stage2-runner.js');
+
+        const result = await runStage2(
+          endpoints,
+          cliArgs.budget,
+          network,
+          config,
+          x402Client,
+          zauthClient
+        );
+
+        // Export results
+        const { createStage2OutputFolder, exportStage2Results } = await import('./stage2-output.js');
+        const timestamp = new Date().toISOString();
+        const paths = createStage2OutputFolder(network, timestamp);
+
+        await exportStage2Results(
+          result,
+          paths,
+          network,
+          config,
+          cliArgs.loadStage1!  // Already validated above
+        );
+
+        // Print summary
+        console.log(`\n✅ Stage 2 complete!`);
+        console.log(`\n${'='.repeat(60)}`);
+        console.log('COMPARISON SUMMARY');
+        console.log('='.repeat(60));
+        console.log(`Endpoints compared: ${result.comparisonSummary.endpointsCompared}`);
+        console.log(`Budget used: $${result.comparisonSummary.budgetUsed.toFixed(3)}`);
+        console.log('');
+        console.log('No-Zauth:');
+        console.log(`  Burn: $${result.comparisonSummary.noZauth.totalBurn.toFixed(3)} (${(result.comparisonSummary.noZauth.burnRate * 100).toFixed(1)}%)`);
+        console.log(`  Allocation: ${result.noZauthResults.allocation.poolId}`);
+        console.log('');
+        console.log('With-Zauth:');
+        console.log(`  Burn: $${result.comparisonSummary.withZauth.totalBurn.toFixed(3)} (${(result.comparisonSummary.withZauth.burnRate * 100).toFixed(1)}%)`);
+        console.log(`  Zauth cost: $${result.comparisonSummary.withZauth.zauthCost.toFixed(3)}`);
+        console.log(`  Allocation: ${result.withZauthResults.allocation.poolId}`);
+        console.log('');
+        console.log('Savings:');
+        console.log(`  Net savings: $${result.comparisonSummary.totalNetSavings.toFixed(3)}`);
+        console.log(`  Burn reduction: ${result.comparisonSummary.burnReduction.toFixed(1)}%`);
+        console.log('');
+        console.log(`📁 Results: ${paths.folderPath}`);
+        console.log('='.repeat(60) + '\n');
+
+        process.exit(0);
       }
 
       // Non-stage mode: regular agent debugging
