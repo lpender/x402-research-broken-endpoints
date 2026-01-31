@@ -963,3 +963,19 @@ Files: src/stage2-validator.ts, src/stage2-mapper.ts, src/stage2-runner.ts,
        src/stage2-output.ts, src/stage2-loader.ts, src/types.ts, src/index.ts,
        src/yield-agent.ts, progress.txt
 Next: Run Stage 2 with low budget ($0.15) to validate interleaved flow
+
+Task: Added Taskfile tasks for Stage 2 with auto-loading of latest Stage 1 results
+New tasks:
+- task stage:2 - Finds most recent Stage 1 folder automatically, requires --budget flag
+- task stage:2:quick - Quick validation with $0.15 budget
+- task stage:2:small - Small test with $0.50 budget
+- task stage:2:medium - Medium test with $1.50 budget
+Auto-loading logic:
+- Uses ls -dt to find most recent stage1_* folder by modification time
+- Validates Stage 1 results exist, shows clear error if not found
+- Displays which Stage 1 folder is being loaded
+- Supports CLI_ARGS passthrough for custom flags
+Usage examples:
+- task stage:2:quick (simplest, $0.15 budget)
+- task stage:2 -- --budget=1.00 --network=solana (custom params)
+Files: Taskfile.yml, progress.txt
