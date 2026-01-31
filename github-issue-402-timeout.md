@@ -15,6 +15,9 @@ The facilitator gives up waiting for transaction confirmation before the Base ne
 ## Evidence
 
 ### Transaction that succeeded on-chain but was rejected
+
+**[View on BaseScan](https://basescan.org/tx/0x8e01aace01ced4155b30d636b547727becdbb8a700f9b7f54ed02c4d629ae696)**
+
 ```
 Transaction: 0x8e01aace01ced4155b30d636b547727becdbb8a700f9b7f54ed02c4d629ae696
 Block: 41551053
