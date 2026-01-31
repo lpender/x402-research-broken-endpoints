@@ -536,6 +536,54 @@ async function main(): Promise<void> {
         const config = loadConfig();
         validateRealModeConfig(config, cliArgs.budget, stage2Network);
 
+        // Check wallet balance before proceeding
+        const walletAddress = await getWalletAddress(config, stage2Network);
+        const { balance: usdcBalance, error: balanceError } = await getWalletUsdcBalance(
+          walletAddress,
+          config,
+          stage2Network
+        );
+
+        if (balanceError) {
+          console.error(`❌ Failed to check wallet balance: ${balanceError}`);
+          console.error(`   Cannot proceed without verifying sufficient funds`);
+          process.exit(1);
+        }
+
+        // Require balance >= budget (for endpoint payments)
+        // Plus recommend extra for gas fees
+        const requiredBalance = cliArgs.budget;
+        const recommendedBalance = cliArgs.budget * 1.5; // 50% extra for gas
+
+        console.log(`\n💰 Wallet Balance Check:`);
+        console.log(`   Address: ${truncateWalletAddress(walletAddress)}`);
+        console.log(`   Balance: $${usdcBalance.toFixed(6)} USDC`);
+        console.log(`   Required: $${requiredBalance.toFixed(6)} USDC (budget)`);
+        console.log(`   Recommended: $${recommendedBalance.toFixed(6)} USDC (budget + gas)\n`);
+
+        if (usdcBalance < requiredBalance) {
+          console.error(`❌ Insufficient USDC balance!`);
+          console.error(`\nYour wallet has $${usdcBalance.toFixed(6)} but Stage 2 requires $${requiredBalance.toFixed(2)}`);
+          console.error(`\nTo add USDC to your wallet:`);
+          console.error(`   1. Network: Base (Chain ID: 8453)`);
+          console.error(`   2. Token: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)`);
+          console.error(`   3. Address: ${walletAddress}`);
+          console.error(`   4. Amount: At least $${recommendedBalance.toFixed(2)} USDC (includes gas)`);
+          console.error(`\nOptions:`);
+          console.error(`   - Bridge: https://bridge.base.org`);
+          console.error(`   - Buy on Coinbase and withdraw to Base`);
+          console.error(`   - Transfer from another wallet`);
+          process.exit(1);
+        }
+
+        if (usdcBalance < recommendedBalance) {
+          console.log(`⚠️  Warning: Balance is close to budget`);
+          console.log(`   You have enough for queries but may run into gas issues`);
+          console.log(`   Recommended to add $${(recommendedBalance - usdcBalance).toFixed(6)} more USDC\n`);
+        } else {
+          console.log(`✓ Sufficient balance for Stage 2\n`);
+        }
+
         // Load Stage 1 results
         const endpoints = await loadStage1Endpoints(cliArgs.loadStage1);
         console.log(`✓ Loaded ${endpoints.length} endpoints from Stage 1`);
@@ -546,8 +594,6 @@ async function main(): Promise<void> {
 
         // Show confirmation prompt (unless --yes)
         if (!cliArgs.yes) {
-          const walletAddress = await getWalletAddress(config, stage2Network);
-
           // Estimate comparisons
           const avgPrice = paymentEndpoints.reduce((sum, e) =>
             sum + (e.requested402Price || e.price || 0.01), 0
@@ -559,7 +605,6 @@ async function main(): Promise<void> {
           console.log(`Budget: $${cliArgs.budget.toFixed(2)} USDC`);
           console.log(`Estimated comparisons: ~${estimatedComparisons} endpoints`);
           console.log(`Network: ${stage2Network}`);
-          console.log(`Wallet: ${truncateWalletAddress(walletAddress)}`);
           console.log("\nEach endpoint will be queried TWICE:");
           console.log("  1. No-zauth mode (blind query)");
           console.log("  2. With-zauth mode (reliability check first)");
