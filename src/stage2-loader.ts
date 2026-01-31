@@ -5,8 +5,29 @@
  */
 
 import type { EnrichedPrepaymentTestResult } from "./types.js";
+import type { Network } from "./config.js";
 import * as fs from "fs/promises";
 import * as path from "path";
+
+/**
+ * Detect network from Stage 1 folder name
+ * Format: YYYY-MM-DDTHH-MM-SS_stage1_{network}
+ */
+export function detectNetworkFromPath(stage1Path: string): Network {
+  const folderName = path.basename(stage1Path);
+
+  if (folderName.endsWith('_stage1_base')) {
+    return 'base';
+  }
+  if (folderName.endsWith('_stage1_solana')) {
+    return 'solana';
+  }
+
+  throw new Error(
+    `Cannot detect network from Stage 1 path: ${stage1Path}\n` +
+    `Expected folder name ending with '_stage1_base' or '_stage1_solana'`
+  );
+}
 
 /**
  * Load endpoints from Stage 1 results folder

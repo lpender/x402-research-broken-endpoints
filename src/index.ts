@@ -495,12 +495,6 @@ async function main(): Promise<void> {
 
       // Stage 2: Real Yield Optimization with Interleaved Comparison
       if (stage === 2) {
-        console.log("\n" + "=".repeat(60));
-        console.log("STAGE 2: REAL YIELD OPTIMIZATION - INTERLEAVED COMPARISON");
-        console.log("=".repeat(60));
-        console.log(`Network: ${network.toUpperCase()}`);
-        console.log("=".repeat(60) + "\n");
-
         // Validation
         if (!cliArgs.real) {
           console.error("❌ Stage 2 requires --real mode");
@@ -515,12 +509,34 @@ async function main(): Promise<void> {
           process.exit(1);
         }
 
+        // Auto-detect network from Stage 1 path
+        const { detectNetworkFromPath, loadStage1Endpoints } = await import('./stage2-loader.js');
+        const detectedNetwork = detectNetworkFromPath(cliArgs.loadStage1);
+
+        // Validate network if user specified --network flag
+        if (cliArgs.network !== 'base') {
+          // User explicitly set --network (not the default)
+          if (cliArgs.network !== detectedNetwork) {
+            console.error(`❌ Network mismatch: Stage 1 used ${detectedNetwork}, but --network=${cliArgs.network} specified`);
+            console.error(`   Stage 2 must use the same network as Stage 1`);
+            process.exit(1);
+          }
+        }
+
+        // Use detected network
+        const stage2Network = detectedNetwork;
+
+        console.log("\n" + "=".repeat(60));
+        console.log("STAGE 2: REAL YIELD OPTIMIZATION - INTERLEAVED COMPARISON");
+        console.log("=".repeat(60));
+        console.log(`Network: ${stage2Network.toUpperCase()} (auto-detected from Stage 1)`);
+        console.log("=".repeat(60) + "\n");
+
         // Load config and validate
         const config = loadConfig();
-        validateRealModeConfig(config, cliArgs.budget, network);
+        validateRealModeConfig(config, cliArgs.budget, stage2Network);
 
         // Load Stage 1 results
-        const { loadStage1Endpoints } = await import('./stage2-loader.js');
         const endpoints = await loadStage1Endpoints(cliArgs.loadStage1);
         console.log(`✓ Loaded ${endpoints.length} endpoints from Stage 1`);
 
@@ -530,7 +546,7 @@ async function main(): Promise<void> {
 
         // Show confirmation prompt (unless --yes)
         if (!cliArgs.yes) {
-          const walletAddress = await getWalletAddress(config, network);
+          const walletAddress = await getWalletAddress(config, stage2Network);
 
           // Estimate comparisons
           const avgPrice = paymentEndpoints.reduce((sum, e) =>
@@ -542,7 +558,7 @@ async function main(): Promise<void> {
           console.log(`Endpoints available: ${paymentEndpoints.length} (402-enabled)`);
           console.log(`Budget: $${cliArgs.budget.toFixed(2)} USDC`);
           console.log(`Estimated comparisons: ~${estimatedComparisons} endpoints`);
-          console.log(`Network: ${network}`);
+          console.log(`Network: ${stage2Network}`);
           console.log(`Wallet: ${truncateWalletAddress(walletAddress)}`);
           console.log("\nEach endpoint will be queried TWICE:");
           console.log("  1. No-zauth mode (blind query)");
@@ -572,7 +588,7 @@ async function main(): Promise<void> {
         const { createRealX402Client } = await import('./x402-client.js');
         const { createRealZauthClient } = await import('./zauth-client.js');
 
-        const x402Client = await createRealX402Client(config, network);
+        const x402Client = await createRealX402Client(config, stage2Network);
         const zauthClient = createRealZauthClient(config);
 
         // Run Stage 2
@@ -582,7 +598,7 @@ async function main(): Promise<void> {
         const result = await runStage2(
           endpoints,
           cliArgs.budget,
-          network,
+          stage2Network,
           config,
           x402Client,
           zauthClient
@@ -591,12 +607,12 @@ async function main(): Promise<void> {
         // Export results
         const { createStage2OutputFolder, exportStage2Results } = await import('./stage2-output.js');
         const timestamp = new Date().toISOString();
-        const paths = createStage2OutputFolder(network, timestamp);
+        const paths = createStage2OutputFolder(stage2Network, timestamp);
 
         await exportStage2Results(
           result,
           paths,
-          network,
+          stage2Network,
           config,
           cliArgs.loadStage1!  // Already validated above
         );
