@@ -1012,3 +1012,33 @@ Output format example:
   [pool] 1/47   Net savings: $0.000 | Budget remaining: $0.491
 Impact: User can see exactly what's happening, diagnose hangs, track budget in real-time
 Files: src/stage2-runner.ts, progress.txt
+
+Task: Debug 100% endpoint failure in Stage 2 - discovered insufficient USDC balance
+Problem: All 76 endpoints failed with "HTTP 402: Payment Required" errors
+Root cause analysis:
+- Created test-endpoint.ts to debug single endpoint
+- Decoded payment-required header revealed: "insufficient balance: 803 < 2000"
+- Wallet had only $0.000803 USDC but endpoints require $0.002+ per query
+- Stage 2 tried to spend $1.50 budget with nearly empty wallet
+Solution implemented:
+- Added pre-flight wallet balance check to Stage 2 (before confirmation prompt)
+- Checks USDC balance via getWalletUsdcBalance()
+- Requires balance >= budget
+- Recommends 50% extra for gas fees (budget * 1.5)
+- Shows clear error with funding instructions if insufficient:
+  * Current vs required balance
+  * Network details (Base, Chain ID 8453)
+  * Token address (USDC)
+  * Wallet address
+  * Funding options (bridge, buy, transfer)
+- Warning if balance close to budget (enough for queries but may hit gas issues)
+Output example:
+  💰 Wallet Balance Check:
+     Address: 0xCe...9431
+     Balance: $0.000803 USDC
+     Required: $0.150000 USDC (budget)
+     Recommended: $0.225000 USDC (budget + gas)
+  ❌ Insufficient USDC balance!
+Impact: Catches funding issues immediately, saves time debugging failed queries
+Files: src/index.ts, test-endpoint.ts (new), progress.txt
+Next: User needs to add USDC to wallet before running Stage 2
