@@ -154,7 +154,8 @@ async function runCategoryComparison(
   );
 
   // Interleaved comparison loop
-  for (const endpoint of sortedEndpoints) {
+  for (let i = 0; i < sortedEndpoints.length; i++) {
+    const endpoint = sortedEndpoints[i];
     const estimatedCost = (endpoint.requested402Price || endpoint.price || 0.01) * 2;
 
     // Pre-flight budget check (need room for BOTH queries)
@@ -163,17 +164,29 @@ async function runCategoryComparison(
       break;
     }
 
+    // Show progress
+    const progress = `${i + 1}/${sortedEndpoints.length}`;
+    console.log(`[${category}] ${progress} Querying: ${endpoint.name} (price: $${(endpoint.requested402Price || endpoint.price || 0.01).toFixed(3)})`);
+
     // Query with no-zauth
+    process.stdout.write(`[${category}] ${progress}   No-zauth: querying...`);
     const noZauthResult = await noZauthAgent.queryWithValidation(endpoint);
     spendTracker.recordSpend(noZauthResult.spent);
+    const noZauthStatus = noZauthResult.success ? '✓' : '✗';
+    console.log(`\r[${category}] ${progress}   No-zauth: ${noZauthStatus} (spent: $${noZauthResult.spent.toFixed(3)}, burn: $${noZauthResult.burn.toFixed(3)})`);
 
     // Query with with-zauth
+    process.stdout.write(`[${category}] ${progress}   With-zauth: querying...`);
     const withZauthResult = await withZauthAgent.queryWithValidation(endpoint);
     spendTracker.recordSpend(withZauthResult.spent + (withZauthResult.zauthCost || 0));
+    const withZauthStatus = withZauthResult.success ? '✓' : '✗';
+    console.log(`\r[${category}] ${progress}   With-zauth: ${withZauthStatus} (spent: $${withZauthResult.spent.toFixed(3)}, burn: $${withZauthResult.burn.toFixed(3)}, zauth: $${(withZauthResult.zauthCost || 0).toFixed(3)})`);
 
     // Calculate savings
     const burnSavings = noZauthResult.burn - withZauthResult.burn;
     const netSavings = burnSavings - (withZauthResult.zauthCost || 0);
+
+    console.log(`[${category}] ${progress}   Net savings: $${netSavings.toFixed(3)} | Budget remaining: $${spendTracker.getRemainingBudget().toFixed(3)}\n`);
 
     comparisons.push({
       endpoint,
@@ -182,13 +195,6 @@ async function runCategoryComparison(
       burnSavings,
       netSavings
     });
-
-    if (config.verbose) {
-      console.log(`[${category}] ${endpoint.name}:`);
-      console.log(`  No-zauth: ${noZauthResult.success ? '✓' : '✗'} ($${noZauthResult.spent.toFixed(3)}, burn: $${noZauthResult.burn.toFixed(3)})`);
-      console.log(`  With-zauth: ${withZauthResult.success ? '✓' : '✗'} ($${withZauthResult.spent.toFixed(3)}, burn: $${withZauthResult.burn.toFixed(3)}, zauth: $${(withZauthResult.zauthCost || 0).toFixed(3)})`);
-      console.log(`  Savings: $${netSavings.toFixed(3)}`);
-    }
   }
 
   console.log(`[${category}] Completed ${comparisons.length} comparisons, spent: $${spendTracker.getSpentAmount().toFixed(3)}`);
