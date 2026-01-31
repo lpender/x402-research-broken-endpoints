@@ -109,7 +109,7 @@ function validateWithPatternMatching(
       };
     }
 
-    // Pattern 1: { success: true, data: [...] }
+    // Pattern 1a: { success: true, data: [...] } (direct array)
     if (
       typeof response === 'object' &&
       response.success === true &&
@@ -122,7 +122,24 @@ function validateWithPatternMatching(
       };
     }
 
-    // Pattern 2: { data: [...] }
+    // Pattern 1b: { success: true, data: { [key]: [...] } } (nested object with array)
+    if (
+      typeof response === 'object' &&
+      response.success === true &&
+      typeof response.data === 'object' &&
+      response.data !== null
+    ) {
+      const nestedArray = findArrayInObject(response.data);
+      if (nestedArray) {
+        return {
+          valid: true,
+          data: nestedArray,
+          schemaUsed: 'pattern'
+        };
+      }
+    }
+
+    // Pattern 2a: { data: [...] } (direct array)
     if (
       typeof response === 'object' &&
       Array.isArray(response.data)
@@ -132,6 +149,22 @@ function validateWithPatternMatching(
         data: response.data,
         schemaUsed: 'pattern'
       };
+    }
+
+    // Pattern 2b: { data: { [key]: [...] } } (nested object with array)
+    if (
+      typeof response === 'object' &&
+      typeof response.data === 'object' &&
+      response.data !== null
+    ) {
+      const nestedArray = findArrayInObject(response.data);
+      if (nestedArray) {
+        return {
+          valid: true,
+          data: nestedArray,
+          schemaUsed: 'pattern'
+        };
+      }
     }
 
     // Pattern 3: [...] (direct array)
@@ -192,6 +225,40 @@ function validateWithPatternMatching(
       schemaUsed: 'none'
     };
   }
+}
+
+/**
+ * Finds the first array in a nested object
+ * Searches common keys first, then all keys
+ */
+function findArrayInObject(obj: any): any[] | null {
+  if (typeof obj !== 'object' || obj === null) {
+    return null;
+  }
+
+  // Common keys that typically contain data arrays
+  const commonKeys = [
+    'topProtocols', 'topPools', 'topCoins', 'pools', 'protocols',
+    'items', 'results', 'entries', 'data',
+    'whales', 'transactions', 'moves', 'trades',
+    'scores', 'sentiment', 'tokens', 'coins'
+  ];
+
+  // Try common keys first
+  for (const key of commonKeys) {
+    if (Array.isArray(obj[key])) {
+      return obj[key];
+    }
+  }
+
+  // Fall back to searching all keys
+  for (const key of Object.keys(obj)) {
+    if (Array.isArray(obj[key])) {
+      return obj[key];
+    }
+  }
+
+  return null;
 }
 
 /**
