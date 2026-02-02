@@ -6,7 +6,7 @@ This project investigates a critical cost problem facing AI agents: **burn** - m
 
 We developed a three-stage experimental methodology to measure whether Zauth reliability checking can reduce burn. Using a trading signal aggregation use case, we discovered real endpoints on Solana and Base networks via the Coinbase Bazaar API, then ran controlled comparisons between agents that blindly trust endpoints versus those that check Zauth reliability scores first.
 
-**Current Status**: Achieved a major breakthrough on Solana (sub-second confirmations enable successful 402 payments), but discovered Base network has a fundamental timeout race condition that causes 100% payment failures. Initial Solana results show **4.2% burn reduction** when using Zauth, though high endpoint failure rates (95-98%) from rate limiting and validation issues complicate the analysis.
+**Current Status**: Achieved a major breakthrough on Solana (sub-second confirmations enable successful 402 payments), but discovered Base network has a [fundamental timeout race condition](https://github.com/coinbase/x402/issues/1062) that causes 100% payment failures. Initial Solana results show **4.2% burn reduction** when using Zauth, though high endpoint failure rates (95-98%) from rate limiting and validation issues complicate the analysis.
 
 **Key Finding**: The research validates that endpoint reliability is a real problem - paid APIs rate limit paying customers, responses fail validation, and money gets wasted. However, broader protocol limitations (payment timeouts, endpoint rate limiting) currently overshadow the potential benefits of Zauth-based filtering.
 
